@@ -3,7 +3,7 @@ import threading
 import time
 import os
 import numpy as np
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.http import StreamingHttpResponse, JsonResponse
 from django.core.files.storage import FileSystemStorage
 from ultralytics import YOLO
@@ -111,12 +111,39 @@ def get_frame():
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
+def auth_required(view_func):
+    def wrapper(request, *args, **kwargs):
+        if not request.session.get('is_authenticated'):
+            return redirect('login')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+def login_view(request):
+    if request.method == 'POST':
+        if request.POST.get('username') == 'admin' and request.POST.get('password') == 'admin123':
+            request.session['is_authenticated'] = True
+            return redirect('dashboard')
+        else:
+            return render(request, 'surveillance/login.html', {'error': 'Invalid credentials'})
+    return render(request, 'surveillance/login.html')
+
+def logout_view(request):
+    request.session.flush()
+    return redirect('login')
+
+@auth_required
 def dashboard(request):
     return render(request, 'surveillance/dashboard.html')
 
+@auth_required
 def upload_dashboard(request):
     return render(request, 'surveillance/upload_dashboard.html')
 
+@auth_required
+def logs_dashboard(request):
+    return render(request, 'surveillance/logs_dashboard.html')
+
+@auth_required
 def video_feed(request):
     return StreamingHttpResponse(get_frame(), content_type='multipart/x-mixed-replace; boundary=frame')
 

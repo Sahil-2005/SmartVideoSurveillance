@@ -1,0 +1,57 @@
+{% extends 'surveillance/base.html' %}
+
+{% block main_content %}
+<div class="panel" style="flex: 1;">
+    <div class="panel-header" style="margin-bottom: 1.5rem;">
+        <h3><i class="fa-solid fa-file-lines"></i> System Event Logs</h3>
+        <button class="btn btn-outline" style="padding: 8px 15px; font-size: 0.85rem;">
+            <i class="fa-solid fa-download"></i> Export Logs
+        </button>
+    </div>
+    
+    <div class="logs-container" style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--panel-border); color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase;">
+                    <th style="padding: 15px;">Timestamp</th>
+                    <th style="padding: 15px;">Event Type</th>
+                    <th style="padding: 15px;">Source</th>
+                    <th style="padding: 15px;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding: 15px; color: var(--text-muted);">14:20:10</td>
+                    <td style="padding: 15px; color: var(--text-main);">Person Detected (Count: 2)</td>
+                    <td style="padding: 15px; color: var(--text-muted);">CAMERA 01</td>
+                    <td style="padding: 15px;"><span class="status-pill" style="display:inline-block; padding: 4px 10px; font-size: 0.75rem;"><div class="dot" style="display:inline-block; margin-right:5px;"></div>LOGGED</span></td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding: 15px; color: var(--text-muted);">14:18:45</td>
+                    <td style="padding: 15px; color: var(--text-main);">System Status changed to SAFE</td>
+                    <td style="padding: 15px; color: var(--text-muted);">SYSTEM</td>
+                    <td style="padding: 15px;"><span class="status-pill" style="display:inline-block; padding: 4px 10px; font-size: 0.75rem;"><div class="dot" style="display:inline-block; margin-right:5px;"></div>LOGGED</span></td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding: 15px; color: var(--text-muted);">14:15:22</td>
+                    <td style="padding: 15px; color: var(--text-main);">Camera Source Changed: File Upload</td>
+                    <td style="padding: 15px; color: var(--text-muted);">USER (Admin)</td>
+                    <td style="padding: 15px;"><span class="status-pill" style="display:inline-block; padding: 4px 10px; font-size: 0.75rem;"><div class="dot" style="display:inline-block; margin-right:5px;"></div>LOGGED</span></td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding: 15px; color: var(--text-muted);">14:10:05</td>
+                    <td style="padding: 15px; color: var(--text-main);">Person Detected (Count: 1)</td>
+                    <td style="padding: 15px; color: var(--text-muted);">CAMERA 01</td>
+                    <td style="padding: 15px;"><span class="status-pill" style="display:inline-block; padding: 4px 10px; font-size: 0.75rem;"><div class="dot" style="display:inline-block; margin-right:5px;"></div>LOGGED</span></td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding: 15px; color: var(--text-muted);">14:00:00</td>
+                    <td style="padding: 15px; color: var(--text-main);">System Initialization Started</td>
+                    <td style="padding: 15px; color: var(--text-muted);">SYSTEM</td>
+                    <td style="padding: 15px;"><span class="status-pill" style="display:inline-block; padding: 4px 10px; font-size: 0.75rem;"><div class="dot" style="display:inline-block; margin-right:5px;"></div>LOGGED</span></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

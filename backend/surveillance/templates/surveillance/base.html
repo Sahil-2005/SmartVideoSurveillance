@@ -397,14 +397,11 @@
             <a href="{% url 'upload_dashboard' %}" class="nav-item {% if request.path == '/upload-dashboard' %}active{% endif %}">
                 <i class="fa-solid fa-cloud-arrow-up"></i> Media Upload
             </a>
-            <a href="#" class="nav-item">
-                <i class="fa-solid fa-gear"></i> Settings
-            </a>
-            <a href="#" class="nav-item">
+            <a href="{% url 'logs_dashboard' %}" class="nav-item {% if request.path == '/logs-dashboard' %}active{% endif %}">
                 <i class="fa-solid fa-file-lines"></i> Logs
             </a>
-            <a href="#" class="nav-item">
-                <i class="fa-solid fa-circle-info"></i> About
+            <a href="{% url 'logout' %}" class="nav-item" style="margin-top: 10px; color: var(--accent-danger);">
+                <i class="fa-solid fa-right-from-bracket"></i> Logout
             </a>
         </ul>
 
@@ -428,6 +425,7 @@
         </div>
 
         <div class="content-area">
+            {% block main_content %}
             <!-- Top Stats -->
             <div class="stats-row">
                 <div class="stat-box">
@@ -519,6 +517,7 @@
                     </div>
                 </div>
             </div>
+            {% endblock %}
         </div>
     </main>
 
