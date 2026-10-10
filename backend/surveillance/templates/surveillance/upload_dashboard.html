@@ -9,6 +9,9 @@
         <button class="btn btn-primary" onclick="document.getElementById('file-upload').click()">
             <i class="fa-solid fa-file-video"></i> Select Image / Video
         </button>
+        <button class="btn btn-outline" onclick="clearUpload()">
+            <i class="fa-solid fa-trash-can"></i> Clear Media
+        </button>
         <input type="file" id="file-upload" style="display:none;" accept="image/*,video/*" onchange="uploadFile(this)">
         <div class="loader" id="upload-loader"></div>
     </div>
@@ -34,5 +37,19 @@
         }
         document.getElementById('upload-loader').style.display = 'none';
         input.value = ''; // Reset input
+    }
+
+    async function clearUpload() {
+        try {
+            let formData = new FormData();
+            formData.append('action', 'off');
+            await fetch('/api/toggle-camera', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData
+            });
+        } catch (e) {
+            console.error(e);
+        }
     }
 {% endblock %}
