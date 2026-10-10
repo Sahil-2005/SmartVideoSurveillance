@@ -82,6 +82,23 @@ A web-based Smart Video Surveillance and Threat Detection System designed to mon
 
 ---
 
+## How It Works (Under the Hood)
+
+1. **The Backend (Django & OpenCV):** 
+   - We use Django as the core server. It exposes an endpoint (`/video_feed`) that utilizes a `StreamingHttpResponse` to serve a multipart video stream directly to the browser.
+   - A background generator loop using OpenCV (`cv2`) continually reads frames from the active source (either the live webcam or an uploaded media file).
+2. **The AI Engine (YOLO11):**
+   - Every frame captured by OpenCV is passed through the pre-trained `YOLO11n` (Nano) object detection model.
+   - We optimized it to run on a standard CPU by resizing frames (640x480) and filtering the AI's predictions to only detect class `0` (which corresponds to a 'person' in the COCO dataset).
+   - Once a person is detected, OpenCV draws precise bounding boxes directly onto the image frame before sending it to the user.
+3. **The Global State & Concurrency:**
+   - Because video streaming is continuous and blocking, we use Python's `threading.Lock()` and global variables to safely pass active data (like how many people are detected and the current camera status) between the OpenCV processing loop and Django's API endpoints.
+4. **The Frontend (Polling & UI):**
+   - The frontend is built using standard HTML/CSS with a custom, premium Glassmorphic design. 
+   - To keep the architecture lightweight and avoid complex WebSocket setups (like Redis/Daphne), we use JavaScript `fetch()` polling. Every 1 second, the frontend silently asks the `/api/stats` endpoint for the latest detection data (person count, system status) and seamlessly updates the UI without ever reloading the page.
+
+---
+
 ## Author
 
 <div align="left">
