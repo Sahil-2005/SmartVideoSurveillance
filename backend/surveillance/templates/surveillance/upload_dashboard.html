@@ -1,0 +1,38 @@
+{% extends 'surveillance/base.html' %}
+
+{% block right_panel %}
+<div class="panel">
+    <div class="panel-header" style="margin-bottom: 1.5rem;">
+        <h3><i class="fa-solid fa-cloud-arrow-up"></i> Upload Media</h3>
+    </div>
+    <div class="controls-group">
+        <button class="btn btn-primary" onclick="document.getElementById('file-upload').click()">
+            <i class="fa-solid fa-file-video"></i> Select Image / Video
+        </button>
+        <input type="file" id="file-upload" style="display:none;" accept="image/*,video/*" onchange="uploadFile(this)">
+        <div class="loader" id="upload-loader"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+    async function uploadFile(input) {
+        if (!input.files || input.files.length === 0) return;
+        
+        document.getElementById('upload-loader').style.display = 'block';
+        try {
+            let formData = new FormData();
+            formData.append('file', input.files[0]);
+            
+            await fetch('/api/upload', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData
+            });
+        } catch (e) {
+            console.error(e);
+        }
+        document.getElementById('upload-loader').style.display = 'none';
+        input.value = ''; // Reset input
+    }
+{% endblock %}

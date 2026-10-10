@@ -2,6 +2,7 @@ import cv2
 import threading
 import time
 import os
+import numpy as np
 from django.shortcuts import render
 from django.http import StreamingHttpResponse, JsonResponse
 from django.core.files.storage import FileSystemStorage
@@ -9,10 +10,10 @@ from ultralytics import YOLO
 
 # Global state for MVP demo
 current_person_count = 0
-current_status = "SAFE"
+current_status = "MONITORING"
 lock = threading.Lock()
 camera = None
-current_source = 0  # 0 means webcam, string means file path
+current_source = 0  # 0 means webcam, string means file path, None means off
 source_name = "CAMERA 01 (Webcam)"
 
 print("Loading YOLO11n model... (this may take a moment)")
@@ -27,7 +28,7 @@ def get_frame():
     
     if is_image:
         static_frame = cv2.imread(local_source)
-    else:
+    elif local_source is not None:
         if camera is not None:
             camera.release()
         camera = cv2.VideoCapture(local_source)
@@ -42,15 +43,24 @@ def get_frame():
                     camera.release()
                     camera = None
                 static_frame = cv2.imread(local_source)
-            else:
+            elif local_source is not None:
                 if camera is not None:
                     camera.release()
                 camera = cv2.VideoCapture(local_source)
+            else:
+                if camera is not None:
+                    camera.release()
+                    camera = None
                 
         # Get frame depending on source type
-        if is_image:
+        if local_source is None:
+            # Camera turned off
+            frame = np.zeros((480, 640, 3), dtype=np.uint8)
+            cv2.putText(frame, "CAMERA OFFLINE", (180, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+            person_count = 0
+            time.sleep(0.5)
+        elif is_image:
             if static_frame is None:
-                # Fallback if image failed to load
                 time.sleep(1)
                 continue
             frame = static_frame.copy()
@@ -73,23 +83,24 @@ def get_frame():
                     time.sleep(0.1)
                     continue
 
-        # Resize for performance
-        frame = cv2.resize(frame, (640, 480))
-        
-        # Inference
-        results = model(frame, classes=[0], verbose=False)
-        person_count = 0
-        for r in results:
-            boxes = r.boxes
-            person_count += len(boxes)
-            frame = r.plot()
+        # Resize and Infer (only if camera is ON)
+        if local_source is not None:
+            frame = cv2.resize(frame, (640, 480))
+            results = model(frame, classes=[0], verbose=False)
+            person_count = 0
+            for r in results:
+                boxes = r.boxes
+                person_count += len(boxes)
+                frame = r.plot()
             
         with lock:
             current_person_count = person_count
-            if person_count > 0:
-                current_status = "THREAT DETECTED"
+            if local_source is None:
+                current_status = "OFFLINE"
+            elif person_count > 0:
+                current_status = "PERSON DETECTED"
             else:
-                current_status = "SAFE"
+                current_status = "MONITORING"
                 
         # Encode and yield
         ret, buffer = cv2.imencode('.jpg', frame)
@@ -103,6 +114,9 @@ def get_frame():
 def dashboard(request):
     return render(request, 'surveillance/dashboard.html')
 
+def upload_dashboard(request):
+    return render(request, 'surveillance/upload_dashboard.html')
+
 def video_feed(request):
     return StreamingHttpResponse(get_frame(), content_type='multipart/x-mixed-replace; boundary=frame')
 
@@ -114,16 +128,23 @@ def get_stats(request):
             'source_name': source_name
         })
 
+def toggle_camera(request):
+    global current_source, source_name
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'on':
+            current_source = 0
+            source_name = "CAMERA 01 (Webcam)"
+        else:
+            current_source = None
+            source_name = "OFFLINE"
+        return JsonResponse({'status': 'success'})
+    return JsonResponse({'status': 'error'})
+
 def upload_source(request):
     global current_source, source_name
     if request.method == 'POST':
-        source_type = request.POST.get('source_type')
-        if source_type == 'webcam':
-            current_source = 0
-            source_name = "CAMERA 01 (Webcam)"
-            return JsonResponse({'status': 'success', 'message': 'Switched to webcam'})
-            
-        elif 'file' in request.FILES:
+        if 'file' in request.FILES:
             file = request.FILES['file']
             fs = FileSystemStorage()
             filename = fs.save(file.name, file)

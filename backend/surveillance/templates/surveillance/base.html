@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Video Surveillance</title>
+    <!-- Fonts and Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-dark: #0b0f19;
+            --panel-bg: #111828;
+            --panel-border: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+            --accent-green: #10b981;
+            --gradient-primary: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background-color: var(--panel-bg);
+            border-right: 1px solid var(--panel-border);
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem 1rem;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 2.5rem;
+            padding: 0 10px;
+        }
+        
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--gradient-primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+
+        .logo-text h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .logo-text span {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .nav-menu {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px 18px;
+            border-radius: 12px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: all 0.3s;
+        }
+
+        .nav-item:hover {
+            background-color: rgba(255,255,255,0.05);
+            color: var(--text-main);
+        }
+
+        .nav-item.active {
+            background: var(--gradient-primary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+
+        .promo-card {
+            margin-top: auto;
+            background: linear-gradient(180deg, rgba(30,41,59,0) 0%, rgba(30,41,59,0.5) 100%);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .promo-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 3px;
+            background: var(--gradient-primary);
+        }
+
+        .promo-card h4 {
+            font-size: 0.95rem;
+            margin-bottom: 5px;
+        }
+
+        .promo-card p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .top-bar {
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 0 2.5rem;
+            border-bottom: 1px solid var(--panel-border);
+            background-color: rgba(17, 24, 40, 0.9);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .top-bar-icons {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .icon-btn {
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .icon-btn:hover {
+            color: var(--text-main);
+            border-color: var(--text-muted);
+        }
+
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        .dot {
+            width: 8px; height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-green);
+        }
+
+        .content-area {
+            padding: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            max-width: 1400px;
+        }
+
+        /* Stats Row */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+        }
+
+        .stat-box {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1.2rem;
+        }
+
+        .stat-icon {
+            width: 55px; height: 55px;
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem;
+        }
+        .icon-purple { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+        .icon-green { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+        .icon-blue { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+
+        .stat-info h3 {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+
+        .stat-info .value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        .stat-info .sub-text {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 5px;
+        }
+
+        .status-dot {
+            width: 10px; height: 10px; border-radius: 50%; display: inline-block;
+        }
+        .status-dot.online { background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green);}
+        .status-dot.offline { background: #ef4444; box-shadow: 0 0 8px #ef4444;}
+
+        /* Main Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 1200px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .panel-header h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        .video-feed-wrapper {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid var(--panel-border);
+        }
+
+        .video-feed-wrapper img {
+            width: 100%; height: 100%; object-fit: cover;
+        }
+
+        .controls-group {
+            display: flex; flex-direction: column; gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .btn {
+            padding: 14px 20px;
+            border-radius: 12px;
+            border: 1px solid var(--panel-border);
+            background: transparent;
+            color: var(--text-main);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: var(--gradient-primary);
+            border: none;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        .btn:hover:not(.btn-primary) {
+            background: rgba(255,255,255,0.05);
+        }
+
+        .info-row {
+            display: flex; justify-content: space-between;
+            padding: 14px 0;
+            border-bottom: 1px solid var(--panel-border);
+            font-size: 0.9rem;
+        }
+        .info-row:last-child { border-bottom: none; }
+        .info-row .label { color: var(--text-muted); }
+
+        .feature-grid {
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+        }
+        .feature-box {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            padding: 15px 10px;
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .feature-box i {
+            font-size: 1.4rem; margin-bottom: 10px; display: block;
+        }
+        
+        .loader {
+            display: none;
+            margin: 0 auto;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            border-top: 3px solid var(--accent-blue);
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    </style>
+</head>
+<body>
+    {% csrf_token %}
+    
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo-area">
+            <div class="logo-icon"><i class="fa-solid fa-video"></i></div>
+            <div class="logo-text">
+                <h2>Smart Video</h2>
+                <span>Surveillance System</span>
+            </div>
+        </div>
+
+        <ul class="nav-menu">
+            <a href="{% url 'dashboard' %}" class="nav-item {% if request.path == '/' %}active{% endif %}">
+                <i class="fa-solid fa-house"></i> Dashboard
+            </a>
+            <a href="{% url 'upload_dashboard' %}" class="nav-item {% if request.path == '/upload-dashboard' %}active{% endif %}">
+                <i class="fa-solid fa-cloud-arrow-up"></i> Media Upload
+            </a>
+            <a href="#" class="nav-item">
+                <i class="fa-solid fa-gear"></i> Settings
+            </a>
+            <a href="#" class="nav-item">
+                <i class="fa-solid fa-file-lines"></i> Logs
+            </a>
+            <a href="#" class="nav-item">
+                <i class="fa-solid fa-circle-info"></i> About
+            </a>
+        </ul>
+
+        <div class="promo-card">
+            <h4>AI-Powered</h4>
+            <p>Security Solutions</p>
+            <p style="font-size: 0.7rem; margin-top:8px;">Smarter monitoring. Safer tomorrow.</p>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="top-bar">
+            <div class="top-bar-icons">
+                <div class="status-pill">
+                    <div class="dot"></div> System Online
+                </div>
+                <div class="icon-btn"><i class="fa-regular fa-moon"></i></div>
+                <div class="icon-btn"><i class="fa-regular fa-user"></i></div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <!-- Top Stats -->
+            <div class="stats-row">
+                <div class="stat-box">
+                    <div class="stat-icon icon-purple"><i class="fa-solid fa-video"></i></div>
+                    <div class="stat-info">
+                        <h3>Camera Status</h3>
+                        <div class="value">
+                            <span class="status-dot online" id="cam-dot"></span> 
+                            <span id="stat-cam">Checking...</span>
+                        </div>
+                        <div class="sub-text" id="stat-cam-sub">Source active</div>
+                    </div>
+                </div>
+                
+                <div class="stat-box">
+                    <div class="stat-icon icon-green"><i class="fa-solid fa-user"></i></div>
+                    <div class="stat-info">
+                        <h3>People Detected</h3>
+                        <div class="value" id="stat-people">0</div>
+                        <div class="sub-text">In current frame</div>
+                    </div>
+                </div>
+
+                <div class="stat-box">
+                    <div class="stat-icon icon-blue"><i class="fa-solid fa-shield-halved"></i></div>
+                    <div class="stat-info">
+                        <h3>System Status</h3>
+                        <div class="value" id="stat-sys">Monitoring</div>
+                        <div class="sub-text">AI Engine running</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Layout -->
+            <div class="main-grid">
+                <!-- Left: Video Feed -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3><i class="fa-solid fa-video"></i> Live Camera Feed</h3>
+                        <div class="status-pill" style="padding: 4px 10px; font-size: 0.75rem;" id="feed-badge">
+                            <div class="dot"></div> LIVE
+                        </div>
+                    </div>
+                    <div class="video-feed-wrapper">
+                        <img src="{% url 'video_feed' %}" alt="Live Feed" id="video-stream">
+                    </div>
+                </div>
+
+                <!-- Right: Controls & Details -->
+                <div class="right-column" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                    {% block right_panel %}{% endblock %}
+
+                    <div class="panel">
+                        <div class="panel-header" style="margin-bottom: 5px;">
+                            <h3><i class="fa-solid fa-server"></i> System Specs</h3>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Model:</span>
+                            <span>YOLO11 Nano</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Engine:</span>
+                            <span>Ultralytics + OpenCV</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Compute:</span>
+                            <span>CPU Optimized</span>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <div class="panel-header" style="margin-bottom: 10px;">
+                            <h3><i class="fa-solid fa-bolt"></i> Quick Features</h3>
+                        </div>
+                        <div class="feature-grid">
+                            <div class="feature-box">
+                                <i class="fa-solid fa-expand" style="color:#8b5cf6;"></i>
+                                Real-time<br>Detection
+                            </div>
+                            <div class="feature-box">
+                                <i class="fa-solid fa-crosshairs" style="color:#10b981;"></i>
+                                Person<br>Tracking
+                            </div>
+                            <div class="feature-box">
+                                <i class="fa-solid fa-bell" style="color:#3b82f6;"></i>
+                                Instant<br>Alerts
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        async function fetchStats() {
+            try {
+                const response = await fetch('/api/stats');
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Update People Count
+                    document.getElementById('stat-people').innerText = data.person_count;
+                    
+                    // Update Camera Status
+                    const camDot = document.getElementById('cam-dot');
+                    const camText = document.getElementById('stat-cam');
+                    const camSub = document.getElementById('stat-cam-sub');
+                    const feedBadge = document.getElementById('feed-badge');
+                    
+                    if (data.status === "OFFLINE") {
+                        camDot.className = "status-dot offline";
+                        camText.innerText = "Offline";
+                        camSub.innerText = "Camera disconnected";
+                        feedBadge.style.display = 'none';
+                    } else {
+                        camDot.className = "status-dot online";
+                        camText.innerText = "Online";
+                        camSub.innerText = data.source_name;
+                        feedBadge.style.display = 'flex';
+                    }
+
+                    // Update System Status
+                    const sysText = document.getElementById('stat-sys');
+                    if (data.status === "PERSON DETECTED") {
+                        sysText.innerText = "Person Detected";
+                        sysText.style.color = "var(--accent-blue)";
+                    } else if (data.status === "OFFLINE") {
+                        sysText.innerText = "Idle";
+                        sysText.style.color = "var(--text-main)";
+                    } else {
+                        sysText.innerText = "Monitoring";
+                        sysText.style.color = "var(--text-main)";
+                    }
+                }
+            } catch (error) {
+                console.error("Error fetching stats:", error);
+            }
+        }
+        setInterval(fetchStats, 1000);
+        
+        {% block extra_scripts %}{% endblock %}
+    </script>
+</body>
+</html>
