@@ -61,27 +61,39 @@ ZONE_PRESETS = {
 
 def is_person_in_zone(x1, y1, x2, y2, zone_polygon):
     """
-    Volumetric Grid Intrusion Detection:
-    Calculates the exact percentage of the person inside the restricted zone using
-    a uniform 5x5 grid (25 sample points) across the bounding box.
-    
-    - Overlap >= 18%: Definite intrusion (head, torso, or substantial body entered).
-    - Overlap < 10%: Incidental boundary grazing / loose margins (ignored, no false alarm).
-    - Center of mass inside: Always immediately flagged as intrusion.
+    Precision Head/Upper-Body & Majority Overlap Detection:
+    - Primary Anchor: Head & Face (upper 22% center of mass).
+      A person is physically in a zone when their head/face enters it.
+    - Secondary Anchor: Torso / Chest center.
+    - Volumetric Overlap: Requires >= 45% of total body volume inside,
+      ensuring background items (curtains, pillows, chairs) never trigger false alarms.
     """
     if zone_polygon is None:
-        return False
+        return False, (int((x1 + x2) / 2), int(y1 + (y2 - y1) * 0.22))
         
-    cx = int((x1 + x2) / 2)
-    cy = int((y1 + y2) / 2)
-    
-    # 1. Direct Center of Mass check
-    if cv2.pointPolygonTest(zone_polygon, (cx, cy), False) >= 0:
-        return True
-        
-    # 2. Volumetric 5x5 Grid Check across the detected person (25 sample points)
     w = max(1, x2 - x1)
     h = max(1, y2 - y1)
+    
+    # 1. Head / Face Anchor (top 22% of bounding box, centered horizontally)
+    head_x = int((x1 + x2) / 2)
+    head_y = int(y1 + h * 0.22)
+    
+    if cv2.pointPolygonTest(zone_polygon, (head_x, head_y), False) >= 0:
+        return True, (head_x, head_y)
+        
+    # 2. Torso Center of Mass Anchor (middle of body)
+    torso_x = head_x
+    torso_y = int(y1 + h * 0.50)
+    
+    if cv2.pointPolygonTest(zone_polygon, (torso_x, torso_y), False) >= 0:
+        return True, (head_x, head_y)
+        
+    # 3. Ground / Base Stance Anchor (standing feet or seated base)
+    base_y = min(max(y2 - 15, 0), 479)
+    if cv2.pointPolygonTest(zone_polygon, (head_x, base_y), False) >= 0:
+        return True, (head_x, head_y)
+
+    # 4. Majority Overlap Check (Requires >= 45% of total body volume inside)
     gx_start = x1 + int(w * 0.05)
     gx_end = x2 - int(w * 0.05)
     gy_start = y1 + int(h * 0.05)
@@ -89,7 +101,6 @@ def is_person_in_zone(x1, y1, x2, y2, zone_polygon):
     
     inside_pts = 0
     total_pts = 25
-    
     x_steps = [int(gx_start + i * (gx_end - gx_start) / 4) for i in range(5)]
     y_steps = [int(gy_start + j * (gy_end - gy_start) / 4) for j in range(5)]
     
@@ -99,9 +110,10 @@ def is_person_in_zone(x1, y1, x2, y2, zone_polygon):
                 inside_pts += 1
                 
     overlap_ratio = inside_pts / float(total_pts)
-    
-    # If 18% or more of the person is inside the zone, it's a confirmed intrusion
-    return overlap_ratio >= 0.18
+    if overlap_ratio >= 0.45:
+        return True, (head_x, head_y)
+        
+    return False, (head_x, head_y)
 
 print("Loading YOLO11n model... (this may take a moment)")
 model = YOLO('yolo11n.pt')
@@ -201,11 +213,7 @@ def get_frame():
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
                     conf = float(box.conf[0])
                     
-                    # Tracked body center anchor
-                    cx = int((x1 + x2) / 2)
-                    cy = int((y1 + y2) / 2)
-                    
-                    is_in_zone = is_person_in_zone(x1, y1, x2, y2, zone_polygon)
+                    is_in_zone, anchor_pt = is_person_in_zone(x1, y1, x2, y2, zone_polygon)
                     
                     if is_in_zone:
                         intruder_count += 1
@@ -213,7 +221,7 @@ def get_frame():
                     detected_persons.append({
                         'coords': (x1, y1, x2, y2),
                         'conf': conf,
-                        'center': (cx, cy),
+                        'anchor': anchor_pt,
                         'is_intruder': is_in_zone
                     })
             
@@ -241,15 +249,18 @@ def get_frame():
             for p in detected_persons:
                 x1, y1, x2, y2 = p['coords']
                 conf = p['conf']
-                cx, cy = p['center']
+                hx, hy = p['anchor']
                 is_intruder = p['is_intruder']
                 
                 if is_intruder:
                     box_color = (0, 0, 255)  # Bright Red for Intruder
                     tag = f"INTRUDER {conf*100:.0f}%"
+                    cv2.circle(frame, (hx, hy), 6, (0, 0, 255), -1, cv2.LINE_AA)
+                    cv2.circle(frame, (hx, hy), 12, (0, 0, 255), 2, cv2.LINE_AA)
                 else:
                     box_color = (0, 220, 100)  # Vibrant Green for Normal Person
                     tag = f"Person {conf*100:.0f}%"
+                    cv2.circle(frame, (hx, hy), 4, (0, 220, 100), -1, cv2.LINE_AA)
                     
                 # Clean bounding box
                 cv2.rectangle(frame, (x1, y1), (x2, y2), box_color, 2, cv2.LINE_AA)
