@@ -2,17 +2,48 @@ import cv2
 import threading
 import time
 import os
+import json
 import numpy as np
 from django.shortcuts import render, redirect
 from django.http import StreamingHttpResponse, JsonResponse
 from django.core.files.storage import FileSystemStorage
 from ultralytics import YOLO
 
+ZONE_CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'zone_config.json')
+
+def load_zone_config():
+    default_config = {
+        'mode': 'right',
+        'custom_box': {'x1': 320, 'y1': 0, 'x2': 640, 'y2': 480}
+    }
+    if os.path.exists(ZONE_CONFIG_FILE):
+        try:
+            with open(ZONE_CONFIG_FILE, 'r') as f:
+                data = json.load(f)
+                return {
+                    'mode': data.get('mode', 'right'),
+                    'custom_box': data.get('custom_box', default_config['custom_box'])
+                }
+        except Exception as e:
+            print("Error loading zone_config.json:", e)
+    return default_config
+
+def save_zone_config(mode, custom_box):
+    try:
+        with open(ZONE_CONFIG_FILE, 'w') as f:
+            json.dump({'mode': mode, 'custom_box': custom_box}, f, indent=2)
+    except Exception as e:
+        print("Error saving zone_config.json:", e)
+
+# Initial load from disk
+saved_cfg = load_zone_config()
+
 # Global state for surveillance and threat detection
 current_person_count = 0
 current_intruder_count = 0
 current_status = "MONITORING"
-current_zone_mode = 'right'  # 'right', 'left', 'center', 'corridor', 'off'
+current_zone_mode = saved_cfg['mode']
+current_custom_box = saved_cfg['custom_box']
 last_snapshot_time = 0
 lock = threading.Lock()
 camera = None
@@ -30,10 +61,13 @@ ZONE_PRESETS = {
 
 def is_person_in_zone(x1, y1, x2, y2, zone_polygon):
     """
-    Precision Intrusion Detection:
-    Eliminates false alarms caused by loose bounding box margins, arm gestures, or chairs.
-    Only triggers when the person's core center of mass (torso/chest) or a substantial
-    portion (>35%) of their inner body core has entered the restricted zone.
+    Volumetric Grid Intrusion Detection:
+    Calculates the exact percentage of the person inside the restricted zone using
+    a uniform 5x5 grid (25 sample points) across the bounding box.
+    
+    - Overlap >= 18%: Definite intrusion (head, torso, or substantial body entered).
+    - Overlap < 10%: Incidental boundary grazing / loose margins (ignored, no false alarm).
+    - Center of mass inside: Always immediately flagged as intrusion.
     """
     if zone_polygon is None:
         return False
@@ -41,37 +75,33 @@ def is_person_in_zone(x1, y1, x2, y2, zone_polygon):
     cx = int((x1 + x2) / 2)
     cy = int((y1 + y2) / 2)
     
-    # 1. Primary Check: Core Center of Mass (Torso / Chest)
+    # 1. Direct Center of Mass check
     if cv2.pointPolygonTest(zone_polygon, (cx, cy), False) >= 0:
         return True
         
-    # 2. Check Lower Torso / Stance Center (seated base or standing feet)
-    base_y = min(max(y2 - 20, 0), 479)
-    if cv2.pointPolygonTest(zone_polygon, (cx, base_y), False) >= 0:
-        return True
-
-    # 3. Inner Core Multi-Point Check:
-    # Sample points strictly within the inner body core (inner 50% width and height)
-    w = x2 - x1
-    h = y2 - y1
-    inner_x1 = x1 + int(w * 0.28)
-    inner_x2 = x2 - int(w * 0.28)
-    inner_y1 = y1 + int(h * 0.20)
-    inner_y2 = y2 - int(h * 0.20)
+    # 2. Volumetric 5x5 Grid Check across the detected person (25 sample points)
+    w = max(1, x2 - x1)
+    h = max(1, y2 - y1)
+    gx_start = x1 + int(w * 0.05)
+    gx_end = x2 - int(w * 0.05)
+    gy_start = y1 + int(h * 0.05)
+    gy_end = y2 - int(h * 0.05)
     
-    core_samples = [
-        (cx, cy),
-        (inner_x1, cy),
-        (inner_x2, cy),
-        (cx, inner_y1),
-        (cx, inner_y2),
-        (inner_x1, inner_y2),
-        (inner_x2, inner_y2)
-    ]
+    inside_pts = 0
+    total_pts = 25
     
-    inside_count = sum(1 for pt in core_samples if cv2.pointPolygonTest(zone_polygon, pt, False) >= 0)
-    # Require at least 3 core body points inside to confirm a true intrusion
-    return inside_count >= 3
+    x_steps = [int(gx_start + i * (gx_end - gx_start) / 4) for i in range(5)]
+    y_steps = [int(gy_start + j * (gy_end - gy_start) / 4) for j in range(5)]
+    
+    for px in x_steps:
+        for py in y_steps:
+            if cv2.pointPolygonTest(zone_polygon, (px, py), False) >= 0:
+                inside_pts += 1
+                
+    overlap_ratio = inside_pts / float(total_pts)
+    
+    # If 18% or more of the person is inside the zone, it's a confirmed intrusion
+    return overlap_ratio >= 0.18
 
 print("Loading YOLO11n model... (this may take a moment)")
 model = YOLO('yolo11n.pt')
@@ -150,7 +180,16 @@ def get_frame():
             
             with lock:
                 active_zone_key = current_zone_mode
-            zone_polygon = ZONE_PRESETS.get(active_zone_key)
+                custom_box = current_custom_box.copy()
+            
+            if active_zone_key == 'custom':
+                bx1 = custom_box['x1']
+                by1 = custom_box['y1']
+                bx2 = custom_box['x2']
+                by2 = custom_box['y2']
+                zone_polygon = np.array([[bx1, by1], [bx2, by1], [bx2, by2], [bx1, by2]], np.int32)
+            else:
+                zone_polygon = ZONE_PRESETS.get(active_zone_key)
             
             # YOLO11n inference for Person (class 0)
             results = model(frame, classes=[0], verbose=False)
@@ -208,14 +247,24 @@ def get_frame():
                 if is_intruder:
                     box_color = (0, 0, 255)  # Bright Red for Intruder
                     tag = f"INTRUDER {conf*100:.0f}%"
-                    cv2.circle(frame, (cx, cy), 5, (0, 0, 255), -1, cv2.LINE_AA)
-                    cv2.circle(frame, (cx, cy), 12, (0, 0, 255), 2, cv2.LINE_AA)
                 else:
-                    box_color = (0, 220, 100)  # Green for Normal Person
+                    box_color = (0, 220, 100)  # Vibrant Green for Normal Person
                     tag = f"Person {conf*100:.0f}%"
-                    cv2.circle(frame, (cx, cy), 4, (0, 220, 100), -1, cv2.LINE_AA)
                     
+                # Clean bounding box
                 cv2.rectangle(frame, (x1, y1), (x2, y2), box_color, 2, cv2.LINE_AA)
+                
+                # Corner bracket accents for modern surveillance look
+                corner_len = min(16, int((x2 - x1) * 0.15))
+                cv2.line(frame, (x1, y1), (x1 + corner_len, y1), box_color, 3, cv2.LINE_AA)
+                cv2.line(frame, (x1, y1), (x1, y1 + corner_len), box_color, 3, cv2.LINE_AA)
+                cv2.line(frame, (x2, y1), (x2 - corner_len, y1), box_color, 3, cv2.LINE_AA)
+                cv2.line(frame, (x2, y1), (x2, y1 + corner_len), box_color, 3, cv2.LINE_AA)
+                cv2.line(frame, (x1, y2), (x1 + corner_len, y2), box_color, 3, cv2.LINE_AA)
+                cv2.line(frame, (x1, y2), (x1, y2 - corner_len), box_color, 3, cv2.LINE_AA)
+                cv2.line(frame, (x2, y2), (x2 - corner_len, y2), box_color, 3, cv2.LINE_AA)
+                cv2.line(frame, (x2, y2), (x2, y2 - corner_len), box_color, 3, cv2.LINE_AA)
+                
                 (tw, th), _ = cv2.getTextSize(tag, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
                 cv2.rectangle(frame, (x1, max(15, y1 - 20)), (x1 + tw + 8, max(15, y1)), box_color, -1)
                 cv2.putText(frame, tag, (x1 + 4, max(12, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
@@ -301,6 +350,7 @@ def get_stats(request):
             'intruder_count': current_intruder_count,
             'alert_active': current_intruder_count > 0,
             'zone_mode': current_zone_mode,
+            'custom_box': current_custom_box,
             'status': current_status,
             'source_name': source_name
         })
@@ -309,11 +359,42 @@ def set_zone(request):
     global current_zone_mode
     if request.method == 'POST':
         zone = request.POST.get('zone', 'right')
-        if zone in ZONE_PRESETS:
+        if zone in ZONE_PRESETS or zone == 'custom':
             with lock:
                 current_zone_mode = zone
+                custom_box = current_custom_box.copy()
+            save_zone_config(zone, custom_box)
             return JsonResponse({'status': 'success', 'zone': zone})
     return JsonResponse({'status': 'error', 'message': 'Invalid zone preset'})
+
+def set_custom_zone(request):
+    global current_zone_mode, current_custom_box
+    if request.method == 'POST':
+        try:
+            x1 = int(float(request.POST.get('x1', 320)))
+            y1 = int(float(request.POST.get('y1', 0)))
+            x2 = int(float(request.POST.get('x2', 640)))
+            y2 = int(float(request.POST.get('y2', 480)))
+            
+            x_min = max(0, min(640, min(x1, x2)))
+            x_max = max(0, min(640, max(x1, x2)))
+            y_min = max(0, min(480, min(y1, y2)))
+            y_max = max(0, min(480, max(y1, y2)))
+            
+            if x_max - x_min < 20:
+                x_max = min(640, x_min + 50)
+            if y_max - y_min < 20:
+                y_max = min(480, y_min + 50)
+                
+            new_box = {'x1': x_min, 'y1': y_min, 'x2': x_max, 'y2': y_max}
+            with lock:
+                current_custom_box = new_box
+                current_zone_mode = 'custom'
+            save_zone_config('custom', new_box)
+            return JsonResponse({'status': 'success', 'custom_box': new_box, 'zone': 'custom'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'})
 
 def toggle_camera(request):
     global current_source, source_name

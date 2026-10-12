@@ -566,8 +566,12 @@
                             <div class="dot"></div> LIVE
                         </div>
                     </div>
-                    <div class="video-feed-wrapper">
+                    <div class="video-feed-wrapper" id="feed-wrapper" style="position: relative;">
                         <img src="{% url 'video_feed' %}" alt="Live Feed" id="video-stream">
+                        <canvas id="zone-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></canvas>
+                        <div id="draw-prompt" style="display: none; position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(8px); color: #fff; padding: 6px 18px; border-radius: 20px; font-size: 0.8rem; z-index: 20; border: 1px solid rgba(239, 68, 68, 0.7); box-shadow: 0 4px 20px rgba(0,0,0,0.6); pointer-events: none;">
+                            <i class="fa-solid fa-crosshairs" style="color: #ef4444; margin-right: 6px;"></i> Click & drag on video to set boundary
+                        </div>
                     </div>
                 </div>
 
@@ -580,11 +584,11 @@
                         <div class="panel-header" style="margin-bottom: 0.8rem;">
                             <h3><i class="fa-solid fa-draw-polygon"></i> Restricted Zone</h3>
                             <span class="status-pill" id="zone-active-pill" style="padding: 2px 8px; font-size: 0.7rem; background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3);">
-                                RIGHT Active
+                                Loading...
                             </span>
                         </div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                            <button type="button" class="btn zone-btn active" data-zone="right" onclick="setZone('right')">
+                            <button type="button" class="btn zone-btn" data-zone="right" onclick="setZone('right')">
                                 <i class="fa-solid fa-arrow-right"></i> Right Sector
                             </button>
                             <button type="button" class="btn zone-btn" data-zone="left" onclick="setZone('left')">
@@ -597,9 +601,60 @@
                                 <i class="fa-solid fa-road"></i> Corridor
                             </button>
                         </div>
+
+                        <!-- Custom Extent & Interactive Draw Controls -->
+                        <div style="margin-top: 10px; display: flex; gap: 8px;">
+                            <button type="button" class="btn zone-btn" id="btn-draw-zone" onclick="toggleDrawMode()" style="flex: 1; border-color: rgba(59, 130, 246, 0.4); color: #93c5fd; background: rgba(59, 130, 246, 0.1);">
+                                <i class="fa-solid fa-pen-ruler"></i> Draw on Video
+                            </button>
+                            <button type="button" class="btn zone-btn" id="btn-toggle-sliders" onclick="toggleSliders()" style="padding: 8px 14px;" title="Fine-tune boundary extent">
+                                <i class="fa-solid fa-sliders"></i>
+                            </button>
+                        </div>
+
+                        <!-- Fine-Tune Sliders (Collapsible) -->
+                        <div id="sliders-panel" style="display: none; margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 12px; border: 1px solid var(--panel-border);">
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px; display: flex; justify-content: space-between;">
+                                <span>Adjust Extent (Pixels):</span>
+                                <span id="extent-display" style="color: #60a5fa; font-weight: 600;">320, 0, 640, 480</span>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.75rem;">
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                                        <span>Left (X1):</span><span id="val-x1">320</span>
+                                    </div>
+                                    <input type="range" id="slider-x1" min="0" max="640" value="320" style="width: 100%; cursor: pointer;" oninput="onSliderChange()">
+                                </div>
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                                        <span>Right (X2):</span><span id="val-x2">640</span>
+                                    </div>
+                                    <input type="range" id="slider-x2" min="0" max="640" value="640" style="width: 100%; cursor: pointer;" oninput="onSliderChange()">
+                                </div>
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                                        <span>Top (Y1):</span><span id="val-y1">0</span>
+                                    </div>
+                                    <input type="range" id="slider-y1" min="0" max="480" value="0" style="width: 100%; cursor: pointer;" oninput="onSliderChange()">
+                                </div>
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                                        <span>Bottom (Y2):</span><span id="val-y2">480</span>
+                                    </div>
+                                    <input type="range" id="slider-y2" min="0" max="480" value="480" style="width: 100%; cursor: pointer;" oninput="onSliderChange()">
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-primary" onclick="saveCustomSliders()" style="margin-top: 10px; width: 100%; padding: 8px; font-size: 0.8rem;">
+                                <i class="fa-solid fa-floppy-disk"></i> Save Extent
+                            </button>
+                        </div>
+
                         <button type="button" class="btn zone-btn" data-zone="off" onclick="setZone('off')" style="margin-top: 8px; width: 100%;">
                             <i class="fa-solid fa-ban"></i> Disable Zone
                         </button>
+                        <div id="save-toast" style="display: none; margin-top: 8px; font-size: 0.75rem; color: #10b981; text-align: center;">
+                            <i class="fa-solid fa-circle-check"></i> Boundary saved successfully!
+                        </div>
                     </div>
 
                     <div class="panel">
@@ -708,6 +763,11 @@
                     pill.style.color = 'var(--text-muted)';
                     pill.style.borderColor = 'var(--panel-border)';
                     pill.style.background = 'transparent';
+                } else if (zoneName === 'custom') {
+                    pill.innerText = 'CUSTOM Active';
+                    pill.style.color = '#60a5fa';
+                    pill.style.borderColor = 'rgba(96, 165, 250, 0.4)';
+                    pill.style.background = 'rgba(59, 130, 246, 0.15)';
                 } else {
                     pill.innerText = zoneName.toUpperCase() + ' Active';
                     pill.style.color = '#ef4444';
@@ -715,6 +775,183 @@
                     pill.style.background = 'rgba(239,68,68,0.15)';
                 }
             }
+        }
+
+        /* --- Interactive Drawing & Slider Logic --- */
+        let isDrawMode = false;
+        let isDrawing = false;
+        let startX = 0, startY = 0;
+        const canvas = document.getElementById('zone-canvas');
+        const ctx = canvas ? canvas.getContext('2d') : null;
+        const feedWrapper = document.getElementById('feed-wrapper');
+        const drawPrompt = document.getElementById('draw-prompt');
+        const btnDrawZone = document.getElementById('btn-draw-zone');
+
+        function toggleDrawMode() {
+            isDrawMode = !isDrawMode;
+            if (isDrawMode) {
+                canvas.style.pointerEvents = 'auto';
+                canvas.style.cursor = 'crosshair';
+                drawPrompt.style.display = 'block';
+                btnDrawZone.classList.add('active');
+                btnDrawZone.style.background = 'rgba(239, 68, 68, 0.2)';
+                btnDrawZone.style.borderColor = '#ef4444';
+                btnDrawZone.style.color = '#fca5a5';
+                resizeCanvas();
+            } else {
+                exitDrawMode();
+            }
+        }
+
+        function exitDrawMode() {
+            isDrawMode = false;
+            isDrawing = false;
+            if (canvas) {
+                canvas.style.pointerEvents = 'none';
+                canvas.style.cursor = 'default';
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+            if (drawPrompt) drawPrompt.style.display = 'none';
+            if (btnDrawZone) {
+                btnDrawZone.classList.remove('active');
+                btnDrawZone.style.background = 'rgba(59, 130, 246, 0.1)';
+                btnDrawZone.style.borderColor = 'rgba(59, 130, 246, 0.4)';
+                btnDrawZone.style.color = '#93c5fd';
+            }
+        }
+
+        function resizeCanvas() {
+            if (canvas && feedWrapper) {
+                canvas.width = feedWrapper.clientWidth;
+                canvas.height = feedWrapper.clientHeight;
+            }
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        if (canvas) {
+            canvas.addEventListener('mousedown', (e) => {
+                if (!isDrawMode) return;
+                isDrawing = true;
+                const rect = canvas.getBoundingClientRect();
+                startX = e.clientX - rect.left;
+                startY = e.clientY - rect.top;
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                if (!isDrawing || !isDrawMode) return;
+                const rect = canvas.getBoundingClientRect();
+                const curX = e.clientX - rect.left;
+                const curY = e.clientY - rect.top;
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Draw dashed preview box
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([6, 4]);
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.25)';
+
+                const w = curX - startX;
+                const h = curY - startY;
+                ctx.fillRect(startX, startY, w, h);
+                ctx.strokeRect(startX, startY, w, h);
+            });
+
+            canvas.addEventListener('mouseup', async (e) => {
+                if (!isDrawing || !isDrawMode) return;
+                isDrawing = false;
+                const rect = canvas.getBoundingClientRect();
+                const endX = e.clientX - rect.left;
+                const endY = e.clientY - rect.top;
+
+                // Convert canvas coordinates to 640x480 video frame space
+                const scaleX = 640 / canvas.width;
+                const scaleY = 480 / canvas.height;
+
+                const x1 = Math.round(Math.min(startX, endX) * scaleX);
+                const x2 = Math.round(Math.max(startX, endX) * scaleX);
+                const y1 = Math.round(Math.min(startY, endY) * scaleY);
+                const y2 = Math.round(Math.max(startY, endY) * scaleY);
+
+                if (x2 - x1 > 15 && y2 - y1 > 15) {
+                    await saveCustomBoundary(x1, y1, x2, y2);
+                }
+                exitDrawMode();
+            });
+        }
+
+        function toggleSliders() {
+            const panel = document.getElementById('sliders-panel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function onSliderChange() {
+            let x1 = parseInt(document.getElementById('slider-x1').value);
+            let x2 = parseInt(document.getElementById('slider-x2').value);
+            let y1 = parseInt(document.getElementById('slider-y1').value);
+            let y2 = parseInt(document.getElementById('slider-y2').value);
+
+            if (x1 > x2) { let t = x1; x1 = x2; x2 = t; }
+            if (y1 > y2) { let t = y1; y1 = y2; y2 = t; }
+
+            document.getElementById('val-x1').innerText = x1;
+            document.getElementById('val-x2').innerText = x2;
+            document.getElementById('val-y1').innerText = y1;
+            document.getElementById('val-y2').innerText = y2;
+            document.getElementById('extent-display').innerText = `${x1}, ${y1}, ${x2}, ${y2}`;
+        }
+
+        async function saveCustomSliders() {
+            let x1 = parseInt(document.getElementById('slider-x1').value);
+            let x2 = parseInt(document.getElementById('slider-x2').value);
+            let y1 = parseInt(document.getElementById('slider-y1').value);
+            let y2 = parseInt(document.getElementById('slider-y2').value);
+            await saveCustomBoundary(x1, y1, x2, y2);
+        }
+
+        async function saveCustomBoundary(x1, y1, x2, y2) {
+            try {
+                let formData = new FormData();
+                formData.append('x1', x1);
+                formData.append('y1', y1);
+                formData.append('x2', x2);
+                formData.append('y2', y2);
+
+                const res = await fetch('/api/set-custom-zone', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                    body: formData
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    activeZone = 'custom';
+                    updateZoneUI('custom');
+                    syncSlidersUI(data.custom_box);
+
+                    const toast = document.getElementById('save-toast');
+                    if (toast) {
+                        toast.style.display = 'block';
+                        setTimeout(() => { toast.style.display = 'none'; }, 2500);
+                    }
+                }
+            } catch (err) {
+                console.error("Error saving custom boundary:", err);
+            }
+        }
+
+        function syncSlidersUI(box) {
+            if (!box) return;
+            document.getElementById('slider-x1').value = box.x1;
+            document.getElementById('slider-x2').value = box.x2;
+            document.getElementById('slider-y1').value = box.y1;
+            document.getElementById('slider-y2').value = box.y2;
+            document.getElementById('val-x1').innerText = box.x1;
+            document.getElementById('val-x2').innerText = box.x2;
+            document.getElementById('val-y1').innerText = box.y1;
+            document.getElementById('val-y2').innerText = box.y2;
+            document.getElementById('extent-display').innerText = `${box.x1}, ${box.y1}, ${box.x2}, ${box.y2}`;
         }
 
         async function fetchStats() {
@@ -759,7 +996,11 @@
                         }
                     }
 
-                    // Sync active zone button if updated
+                    // Sync active zone button and sliders on initial load
+                    if (!window.hasInitializedZone && data.custom_box) {
+                        window.hasInitializedZone = true;
+                        syncSlidersUI(data.custom_box);
+                    }
                     if (data.zone_mode && data.zone_mode !== activeZone) {
                         activeZone = data.zone_mode;
                         updateZoneUI(data.zone_mode);

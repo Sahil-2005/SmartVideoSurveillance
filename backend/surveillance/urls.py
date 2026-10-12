@@ -12,4 +12,5 @@ urlpatterns = [
     path('api/upload', views.upload_source, name='upload_source'),
     path('api/toggle-camera', views.toggle_camera, name='toggle_camera'),
     path('api/set-zone', views.set_zone, name='set_zone'),
+    path('api/set-custom-zone', views.set_custom_zone, name='set_custom_zone'),
 ]
