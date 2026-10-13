@@ -8,6 +8,7 @@ from django.shortcuts import render, redirect
 from django.http import StreamingHttpResponse, JsonResponse
 from django.core.files.storage import FileSystemStorage
 from ultralytics import YOLO
+from .models import SecurityIncident
 
 ZONE_CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'zone_config.json')
 
@@ -132,6 +133,9 @@ def get_frame():
     cached_detected_persons = []
     cached_person_count = 0
     cached_intruder_count = 0
+    
+    # State tracking: previous frame intruder count to detect actual ENTRY events
+    prev_intruder_count = 0
     
     if is_image:
         static_frame = cv2.imread(local_source)
@@ -320,13 +324,16 @@ def get_frame():
                 cv2.rectangle(frame, (x1, max(15, y1 - 20)), (x1 + tw + 8, max(15, y1)), box_color, -1)
                 cv2.putText(frame, tag, (x1 + 4, max(12, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
                 
-            # 3. Flashing Alert Banner and Evidence Capture
+            # 3. Flashing Alert Banner and Evidence Capture on State Change (ENTRY event)
             if intruder_count > 0:
                 cv2.rectangle(frame, (0, 0), (640, 30), (0, 0, 220), -1)
                 cv2.putText(frame, f"CRITICAL: {intruder_count} INTRUSION EVENT(S) IN RESTRICTED AREA", (15, 21), cv2.FONT_HERSHEY_SIMPLEX, 0.52, (255, 255, 255), 2, cv2.LINE_AA)
                 
-                # Auto-save evidence snapshot (rate-limited to 1 every 4s)
-                if time.time() - last_snapshot_time > 4.0:
+                # Only take snapshot on actual STATE CHANGE:
+                # Triggers when someone newly enters (from 0 to >0) OR count increases (additional intruder enters)
+                is_new_entry = (prev_intruder_count == 0 and intruder_count > 0) or (intruder_count > prev_intruder_count)
+                
+                if is_new_entry and (time.time() - last_snapshot_time > 2.0):
                     last_snapshot_time = time.time()
                     try:
                         evidence_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'media', 'evidence')
@@ -334,8 +341,22 @@ def get_frame():
                         snap_name = f"intrusion_{int(time.time())}.jpg"
                         snap_path = os.path.join(evidence_dir, snap_name)
                         cv2.imwrite(snap_path, frame)
+
+                        # Save incident to database only on entry
+                        relative_snap_url = f"evidence/{snap_name}"
+                        SecurityIncident.objects.create(
+                            threat_type='UNAUTHORIZED INTRUSION',
+                            severity='CRITICAL',
+                            source=source_name,
+                            intruder_count=intruder_count,
+                            snapshot=relative_snap_url,
+                            details=f"New entry detected: {intruder_count} intruder(s) entered restricted sector ({current_zone_mode.upper()})."
+                        )
                     except Exception as err:
-                        print("Evidence capture error:", err)
+                        print("Evidence/Incident record error:", err)
+            
+            # Update previous intruder count for next frame comparison
+            prev_intruder_count = intruder_count
             
         with lock:
             current_person_count = person_count
@@ -388,7 +409,12 @@ def upload_dashboard(request):
 
 @auth_required
 def logs_dashboard(request):
-    return render(request, 'surveillance/logs_dashboard.html')
+    incidents = SecurityIncident.objects.all().order_by('-timestamp')
+    total_incidents = incidents.count()
+    return render(request, 'surveillance/logs_dashboard.html', {
+        'incidents': incidents,
+        'total_incidents': total_incidents
+    })
 
 @auth_required
 def video_feed(request):
@@ -474,3 +500,40 @@ def upload_source(request):
             return JsonResponse({'status': 'success', 'message': f'Switched to {filename}'})
             
     return JsonResponse({'status': 'error', 'message': 'Invalid request'})
+
+@auth_required
+def delete_incident(request):
+    if request.method == 'POST':
+        incident_id = request.POST.get('incident_id')
+        try:
+            incident = SecurityIncident.objects.get(id=incident_id)
+            if incident.snapshot:
+                try:
+                    if os.path.exists(incident.snapshot.path):
+                        os.remove(incident.snapshot.path)
+                except Exception as e:
+                    print("Error removing snapshot file:", e)
+            incident.delete()
+            return JsonResponse({'status': 'success'})
+        except SecurityIncident.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'Incident not found'})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'})
+
+@auth_required
+def clear_all_incidents(request):
+    if request.method == 'POST':
+        try:
+            incidents = SecurityIncident.objects.all()
+            for incident in incidents:
+                if incident.snapshot:
+                    try:
+                        if os.path.exists(incident.snapshot.path):
+                            os.remove(incident.snapshot.path)
+                    except Exception as e:
+                        pass
+            incidents.delete()
+            return JsonResponse({'status': 'success'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'})
+
