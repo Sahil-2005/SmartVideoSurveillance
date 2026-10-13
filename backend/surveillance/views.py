@@ -124,7 +124,14 @@ def get_frame():
     
     local_source = current_source
     is_image = isinstance(local_source, str) and local_source.lower().endswith(('.png', '.jpg', '.jpeg'))
+    is_video_file = isinstance(local_source, str) and not is_image
     static_frame = None
+    
+    # State for frame skipping & speed optimization on uploaded videos
+    frame_idx = 0
+    cached_detected_persons = []
+    cached_person_count = 0
+    cached_intruder_count = 0
     
     if is_image:
         static_frame = cv2.imread(local_source)
@@ -138,6 +145,11 @@ def get_frame():
         if local_source != current_source:
             local_source = current_source
             is_image = isinstance(local_source, str) and local_source.lower().endswith(('.png', '.jpg', '.jpeg'))
+            is_video_file = isinstance(local_source, str) and not is_image
+            frame_idx = 0
+            cached_detected_persons = []
+            cached_person_count = 0
+            cached_intruder_count = 0
             if is_image:
                 if camera is not None:
                     camera.release()
@@ -189,6 +201,7 @@ def get_frame():
         intruder_count = 0
         if local_source is not None:
             frame = cv2.resize(frame, (640, 480))
+            frame_idx += 1
             
             with lock:
                 active_zone_key = current_zone_mode
@@ -203,27 +216,54 @@ def get_frame():
             else:
                 zone_polygon = ZONE_PRESETS.get(active_zone_key)
             
-            # YOLO11n inference for Person (class 0)
-            results = model(frame, classes=[0], verbose=False)
+            # For uploaded videos on CPU, run AI inference every 3rd frame to achieve real-time playback
+            should_run_ai = True
+            if is_video_file:
+                # If skipping frames, reuse previous frame detections
+                if frame_idx % 3 != 1 and cached_detected_persons is not None and len(cached_detected_persons) >= 0 and frame_idx > 1:
+                    should_run_ai = False
             
-            detected_persons = []
-            for r in results:
-                for box in r.boxes:
-                    person_count += 1
-                    x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    conf = float(box.conf[0])
-                    
+            if should_run_ai:
+                results = model(frame, classes=[0], imgsz=480, verbose=False)
+                
+                detected_persons = []
+                for r in results:
+                    for box in r.boxes:
+                        person_count += 1
+                        x1, y1, x2, y2 = map(int, box.xyxy[0])
+                        conf = float(box.conf[0])
+                        
+                        is_in_zone, anchor_pt = is_person_in_zone(x1, y1, x2, y2, zone_polygon)
+                        
+                        if is_in_zone:
+                            intruder_count += 1
+                            
+                        detected_persons.append({
+                            'coords': (x1, y1, x2, y2),
+                            'conf': conf,
+                            'anchor': anchor_pt,
+                            'is_intruder': is_in_zone
+                        })
+                cached_detected_persons = detected_persons
+                cached_person_count = person_count
+                cached_intruder_count = intruder_count
+            else:
+                # Re-evaluate cached detections against zone in case zone changed
+                detected_persons = []
+                intruder_count = 0
+                person_count = len(cached_detected_persons)
+                for p in cached_detected_persons:
+                    x1, y1, x2, y2 = p['coords']
                     is_in_zone, anchor_pt = is_person_in_zone(x1, y1, x2, y2, zone_polygon)
-                    
                     if is_in_zone:
                         intruder_count += 1
-                        
                     detected_persons.append({
                         'coords': (x1, y1, x2, y2),
-                        'conf': conf,
+                        'conf': p['conf'],
                         'anchor': anchor_pt,
                         'is_intruder': is_in_zone
                     })
+                cached_intruder_count = intruder_count
             
             # 1. Render Restricted Zone overlay
             if zone_polygon is not None:
