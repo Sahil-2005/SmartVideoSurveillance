@@ -42,6 +42,7 @@ saved_cfg = load_zone_config()
 # Global state for surveillance and threat detection
 current_person_count = 0
 current_intruder_count = 0
+current_weapon_count = 0
 current_status = "MONITORING"
 current_zone_mode = saved_cfg['mode']
 current_custom_box = saved_cfg['custom_box']
@@ -116,11 +117,14 @@ def is_person_in_zone(x1, y1, x2, y2, zone_polygon):
         
     return False, (head_x, head_y)
 
-print("Loading YOLO11n model... (this may take a moment)")
+print("Loading YOLO11n person model... (this may take a moment)")
 model = YOLO('yolo11n.pt')
 
+print("Loading Weapon detection model (Pistol & Knife)...")
+weapon_model = YOLO('weapon_yolov8n.pt')
+
 def get_frame():
-    global current_person_count, current_intruder_count, current_status
+    global current_person_count, current_intruder_count, current_weapon_count, current_status
     global camera, current_source, current_zone_mode, last_snapshot_time
     
     local_source = current_source
@@ -131,11 +135,14 @@ def get_frame():
     # State for frame skipping & speed optimization on uploaded videos
     frame_idx = 0
     cached_detected_persons = []
+    cached_detected_weapons = []
     cached_person_count = 0
     cached_intruder_count = 0
+    cached_weapon_count = 0
     
-    # State tracking: previous frame intruder count to detect actual ENTRY events
+    # State tracking: previous counts to detect actual ENTRY/WEAPON events
     prev_intruder_count = 0
+    prev_weapon_count = 0
     
     if is_image:
         static_frame = cv2.imread(local_source)
@@ -152,8 +159,12 @@ def get_frame():
             is_video_file = isinstance(local_source, str) and not is_image
             frame_idx = 0
             cached_detected_persons = []
+            cached_detected_weapons = []
             cached_person_count = 0
             cached_intruder_count = 0
+            cached_weapon_count = 0
+            prev_intruder_count = 0
+            prev_weapon_count = 0
             if is_image:
                 if camera is not None:
                     camera.release()
@@ -203,6 +214,9 @@ def get_frame():
         # Resize and Infer (only if camera is ON)
         person_count = 0
         intruder_count = 0
+        weapon_count = 0
+        detected_weapons = []
+        
         if local_source is not None:
             frame = cv2.resize(frame, (640, 480))
             frame_idx += 1
@@ -220,14 +234,13 @@ def get_frame():
             else:
                 zone_polygon = ZONE_PRESETS.get(active_zone_key)
             
-            # For uploaded videos on CPU, run AI inference every 3rd frame to achieve real-time playback
-            should_run_ai = True
-            if is_video_file:
-                # If skipping frames, reuse previous frame detections
-                if frame_idx % 3 != 1 and cached_detected_persons is not None and len(cached_detected_persons) >= 0 and frame_idx > 1:
-                    should_run_ai = False
+            # For CPU efficiency: run person detection on frame % 2 == 1, weapon detection on frame % 2 == 0
+            # For video files: run every 3rd frame
+            run_person_ai = (frame_idx % 2 == 1) if not is_video_file else (frame_idx % 3 == 1)
+            run_weapon_ai = (frame_idx % 2 == 0) if not is_video_file else (frame_idx % 3 == 2)
             
-            if should_run_ai:
+            # --- 1. Person Detection ---
+            if run_person_ai or not cached_detected_persons:
                 results = model(frame, classes=[0], imgsz=480, verbose=False)
                 
                 detected_persons = []
@@ -252,7 +265,6 @@ def get_frame():
                 cached_person_count = person_count
                 cached_intruder_count = intruder_count
             else:
-                # Re-evaluate cached detections against zone in case zone changed
                 detected_persons = []
                 intruder_count = 0
                 person_count = len(cached_detected_persons)
@@ -268,6 +280,28 @@ def get_frame():
                         'is_intruder': is_in_zone
                     })
                 cached_intruder_count = intruder_count
+
+            # --- 2. Weapon Detection (Pistol & Knife) ---
+            if run_weapon_ai or (frame_idx <= 2):
+                w_results = weapon_model(frame, conf=0.40, imgsz=480, verbose=False)
+                detected_weapons = []
+                for r in w_results:
+                    for box in r.boxes:
+                        wx1, wy1, wx2, wy2 = map(int, box.xyxy[0])
+                        w_conf = float(box.conf[0])
+                        cls_id = int(box.cls[0])
+                        cls_name = weapon_model.names.get(cls_id, 'weapon').upper()
+                        weapon_count += 1
+                        detected_weapons.append({
+                            'coords': (wx1, wy1, wx2, wy2),
+                            'conf': w_conf,
+                            'name': cls_name
+                        })
+                cached_detected_weapons = detected_weapons
+                cached_weapon_count = weapon_count
+            else:
+                detected_weapons = cached_detected_weapons
+                weapon_count = cached_weapon_count
             
             # 1. Render Restricted Zone overlay
             if zone_polygon is not None:
@@ -324,15 +358,51 @@ def get_frame():
                 cv2.rectangle(frame, (x1, max(15, y1 - 20)), (x1 + tw + 8, max(15, y1)), box_color, -1)
                 cv2.putText(frame, tag, (x1 + 4, max(12, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
                 
-            # 3. Flashing Alert Banner and Evidence Capture on State Change (ENTRY event)
-            if intruder_count > 0:
+            # 3. Render Weapon Bounding Boxes (Neon Orange / Red alert style)
+            for w in detected_weapons:
+                wx1, wy1, wx2, wy2 = w['coords']
+                w_tag = f"WEAPON: {w['name']} {w['conf']*100:.0f}%"
+                w_color = (0, 69, 255) # Bright Neon Orange-Red
+                cv2.rectangle(frame, (wx1, wy1), (wx2, wy2), w_color, 2, cv2.LINE_AA)
+                (wtw, wth), _ = cv2.getTextSize(w_tag, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+                cv2.rectangle(frame, (wx1, max(15, wy1 - 20)), (wx1 + wtw + 8, max(15, wy1)), w_color, -1)
+                cv2.putText(frame, w_tag, (wx1 + 4, max(12, wy1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
+
+            # 4. Flashing Alert Banner and Evidence Capture
+            is_weapon_threat = weapon_count > 0
+            is_intrusion_threat = intruder_count > 0
+            
+            if is_weapon_threat:
+                cv2.rectangle(frame, (0, 0), (640, 30), (0, 35, 220), -1)
+                cv2.putText(frame, f"CRITICAL: {weapon_count} WEAPON DETECTED ({detected_weapons[0]['name']})", (15, 21), cv2.FONT_HERSHEY_SIMPLEX, 0.52, (255, 255, 255), 2, cv2.LINE_AA)
+                
+                # Auto-save snapshot on new weapon appearance
+                is_new_weapon = (prev_weapon_count == 0 and weapon_count > 0) or (weapon_count > prev_weapon_count)
+                if is_new_weapon and (time.time() - last_snapshot_time > 2.0):
+                    last_snapshot_time = time.time()
+                    try:
+                        evidence_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'media', 'evidence')
+                        os.makedirs(evidence_dir, exist_ok=True)
+                        snap_name = f"weapon_{int(time.time())}.jpg"
+                        snap_path = os.path.join(evidence_dir, snap_name)
+                        cv2.imwrite(snap_path, frame)
+
+                        SecurityIncident.objects.create(
+                            threat_type=f"WEAPON DETECTED ({detected_weapons[0]['name']})",
+                            severity='CRITICAL',
+                            source=source_name,
+                            intruder_count=weapon_count,
+                            snapshot=f"evidence/{snap_name}",
+                            details=f"Weapon detected with {detected_weapons[0]['conf']*100:.1f}% confidence."
+                        )
+                    except Exception as err:
+                        print("Weapon incident record error:", err)
+
+            elif is_intrusion_threat:
                 cv2.rectangle(frame, (0, 0), (640, 30), (0, 0, 220), -1)
                 cv2.putText(frame, f"CRITICAL: {intruder_count} INTRUSION EVENT(S) IN RESTRICTED AREA", (15, 21), cv2.FONT_HERSHEY_SIMPLEX, 0.52, (255, 255, 255), 2, cv2.LINE_AA)
                 
-                # Only take snapshot on actual STATE CHANGE:
-                # Triggers when someone newly enters (from 0 to >0) OR count increases (additional intruder enters)
                 is_new_entry = (prev_intruder_count == 0 and intruder_count > 0) or (intruder_count > prev_intruder_count)
-                
                 if is_new_entry and (time.time() - last_snapshot_time > 2.0):
                     last_snapshot_time = time.time()
                     try:
@@ -342,27 +412,28 @@ def get_frame():
                         snap_path = os.path.join(evidence_dir, snap_name)
                         cv2.imwrite(snap_path, frame)
 
-                        # Save incident to database only on entry
-                        relative_snap_url = f"evidence/{snap_name}"
                         SecurityIncident.objects.create(
                             threat_type='UNAUTHORIZED INTRUSION',
                             severity='CRITICAL',
                             source=source_name,
                             intruder_count=intruder_count,
-                            snapshot=relative_snap_url,
+                            snapshot=f"evidence/{snap_name}",
                             details=f"New entry detected: {intruder_count} intruder(s) entered restricted sector ({current_zone_mode.upper()})."
                         )
                     except Exception as err:
                         print("Evidence/Incident record error:", err)
             
-            # Update previous intruder count for next frame comparison
             prev_intruder_count = intruder_count
+            prev_weapon_count = weapon_count
             
         with lock:
             current_person_count = person_count
             current_intruder_count = intruder_count
+            current_weapon_count = weapon_count
             if local_source is None:
                 current_status = "OFFLINE"
+            elif weapon_count > 0:
+                current_status = f"WEAPON DETECTED ({detected_weapons[0]['name'] if detected_weapons else 'ARMED'})"
             elif intruder_count > 0:
                 current_status = "INTRUSION DETECTED"
             elif person_count > 0:
@@ -425,7 +496,9 @@ def get_stats(request):
         return JsonResponse({
             'person_count': current_person_count,
             'intruder_count': current_intruder_count,
-            'alert_active': current_intruder_count > 0,
+            'weapon_count': current_weapon_count,
+            'alert_active': (current_intruder_count > 0 or current_weapon_count > 0),
+            'threat_type': 'WEAPON' if current_weapon_count > 0 else ('INTRUSION' if current_intruder_count > 0 else 'NONE'),
             'zone_mode': current_zone_mode,
             'custom_box': current_custom_box,
             'status': current_status,
