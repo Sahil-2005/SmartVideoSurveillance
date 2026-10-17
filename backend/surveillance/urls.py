@@ -15,4 +15,5 @@ urlpatterns = [
     path('api/set-custom-zone', views.set_custom_zone, name='set_custom_zone'),
     path('api/delete-incident', views.delete_incident, name='delete_incident'),
     path('api/clear-all-incidents', views.clear_all_incidents, name='clear_all_incidents'),
+    path('api/analytics', views.get_analytics, name='get_analytics'),
 ]
