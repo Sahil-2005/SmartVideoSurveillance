@@ -2,56 +2,136 @@
 
 {% block main_content %}
 <div class="panel" style="flex: 1;">
-    <div class="panel-header" style="margin-bottom: 1.5rem;">
-        <h3><i class="fa-solid fa-file-lines"></i> System Event Logs</h3>
-        <button class="btn btn-outline" style="padding: 8px 15px; font-size: 0.85rem;">
-            <i class="fa-solid fa-download"></i> Export Logs
-        </button>
+    <div class="panel-header" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div>
+            <h3 style="display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-file-shield" style="color: #ef4444;"></i> Security Incident Audit Log
+            </h3>
+            <span style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; display: inline-block;">
+                Total Verified Threats: <strong id="total-incidents-count" style="color: #fff;">{{ total_incidents }}</strong>
+            </span>
+        </div>
+        <div style="display: flex; gap: 8px;">
+            {% if incidents %}
+            <button class="btn btn-outline" onclick="clearAllLogs()" style="padding: 8px 15px; font-size: 0.85rem; color: #f87171; border-color: rgba(239,68,68,0.3);">
+                <i class="fa-solid fa-trash-can"></i> Clear All Logs
+            </button>
+            {% endif %}
+            <button class="btn btn-outline" onclick="window.location.reload()" style="padding: 8px 15px; font-size: 0.85rem;">
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+            </button>
+        </div>
     </div>
     
     <div class="logs-container" style="overflow-x: auto;">
         <table style="width: 100%; border-collapse: collapse; text-align: left;">
             <thead>
-                <tr style="border-bottom: 1px solid var(--panel-border); color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase;">
-                    <th style="padding: 15px;">Timestamp</th>
-                    <th style="padding: 15px;">Event Type</th>
-                    <th style="padding: 15px;">Source</th>
-                    <th style="padding: 15px;">Status</th>
+                <tr style="border-bottom: 1px solid var(--panel-border); color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">
+                    <th style="padding: 14px;">Incident ID</th>
+                    <th style="padding: 14px;">Timestamp (UTC)</th>
+                    <th style="padding: 14px;">Threat Type</th>
+                    <th style="padding: 14px;">Severity</th>
+                    <th style="padding: 14px;">Source</th>
+                    <th style="padding: 14px;">Intruders</th>
+                    <th style="padding: 14px;">Evidence</th>
+                    <th style="padding: 14px; text-align: right;">Action</th>
                 </tr>
             </thead>
-            <tbody>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 15px; color: var(--text-muted);">14:20:10</td>
-                    <td style="padding: 15px; color: var(--text-main);">Person Detected (Count: 2)</td>
-                    <td style="padding: 15px; color: var(--text-muted);">CAMERA 01</td>
-                    <td style="padding: 15px;"><span class="status-pill" style="display:inline-block; padding: 4px 10px; font-size: 0.75rem;"><div class="dot" style="display:inline-block; margin-right:5px;"></div>LOGGED</span></td>
-                </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 15px; color: var(--text-muted);">14:18:45</td>
-                    <td style="padding: 15px; color: var(--text-main);">System Status changed to SAFE</td>
-                    <td style="padding: 15px; color: var(--text-muted);">SYSTEM</td>
-                    <td style="padding: 15px;"><span class="status-pill" style="display:inline-block; padding: 4px 10px; font-size: 0.75rem;"><div class="dot" style="display:inline-block; margin-right:5px;"></div>LOGGED</span></td>
-                </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 15px; color: var(--text-muted);">14:15:22</td>
-                    <td style="padding: 15px; color: var(--text-main);">Camera Source Changed: File Upload</td>
-                    <td style="padding: 15px; color: var(--text-muted);">USER (Admin)</td>
-                    <td style="padding: 15px;"><span class="status-pill" style="display:inline-block; padding: 4px 10px; font-size: 0.75rem;"><div class="dot" style="display:inline-block; margin-right:5px;"></div>LOGGED</span></td>
-                </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 15px; color: var(--text-muted);">14:10:05</td>
-                    <td style="padding: 15px; color: var(--text-main);">Person Detected (Count: 1)</td>
-                    <td style="padding: 15px; color: var(--text-muted);">CAMERA 01</td>
-                    <td style="padding: 15px;"><span class="status-pill" style="display:inline-block; padding: 4px 10px; font-size: 0.75rem;"><div class="dot" style="display:inline-block; margin-right:5px;"></div>LOGGED</span></td>
-                </tr>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 15px; color: var(--text-muted);">14:00:00</td>
-                    <td style="padding: 15px; color: var(--text-main);">System Initialization Started</td>
-                    <td style="padding: 15px; color: var(--text-muted);">SYSTEM</td>
-                    <td style="padding: 15px;"><span class="status-pill" style="display:inline-block; padding: 4px 10px; font-size: 0.75rem;"><div class="dot" style="display:inline-block; margin-right:5px;"></div>LOGGED</span></td>
-                </tr>
+            <tbody id="logs-tbody">
+                {% if incidents %}
+                    {% for inc in incidents %}
+                    <tr id="row-{{ inc.id }}" style="border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.9rem;">
+                        <td style="padding: 14px; color: var(--text-muted); font-family: monospace;">#SEC-{{ inc.id|stringformat:"04d" }}</td>
+                        <td style="padding: 14px; color: var(--text-main);">{{ inc.timestamp|date:"Y-m-d H:i:s" }}</td>
+                        <td style="padding: 14px; font-weight: 600; color: #fca5a5;">
+                            <i class="fa-solid fa-triangle-exclamation" style="margin-right: 6px; color: #ef4444;"></i>
+                            {{ inc.threat_type }}
+                        </td>
+                        <td style="padding: 14px;">
+                            <span class="status-pill" style="display:inline-block; padding: 4px 10px; font-size: 0.72rem; background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.4); color: #f87171;">
+                                {{ inc.severity }}
+                            </span>
+                        </td>
+                        <td style="padding: 14px; color: var(--text-muted); font-size: 0.85rem;">{{ inc.source }}</td>
+                        <td style="padding: 14px; color: #fff; font-weight: 600;">{{ inc.intruder_count }}</td>
+                        <td style="padding: 14px;">
+                            {% if inc.snapshot %}
+                                <a href="{{ inc.snapshot.url }}" target="_blank" class="btn btn-outline" style="padding: 5px 12px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 5px; color: #93c5fd; border-color: rgba(59,130,246,0.3);">
+                                    <i class="fa-solid fa-image"></i> View Snapshot
+                                </a>
+                            {% else %}
+                                <span style="color: var(--text-muted); font-size: 0.8rem;">No Image</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 14px; text-align: right;">
+                            <button onclick="deleteLog({{ inc.id }})" class="btn btn-outline" style="padding: 5px 10px; font-size: 0.75rem; color: #f87171; border-color: rgba(239,68,68,0.2);" title="Delete Record">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr id="empty-row">
+                        <td colspan="8" style="padding: 40px; text-align: center; color: var(--text-muted);">
+                            <i class="fa-solid fa-shield-check" style="font-size: 2.5rem; color: #10b981; margin-bottom: 12px; display: block;"></i>
+                            No security incidents recorded yet. Perimeter is secure!
+                        </td>
+                    </tr>
+                {% endif %}
             </tbody>
         </table>
     </div>
 </div>
 {% endblock %}
+
+{% block extra_scripts %}
+    async function deleteLog(incidentId) {
+        if (!confirm('Are you sure you want to delete this incident log?')) return;
+        
+        try {
+            let formData = new FormData();
+            formData.append('incident_id', incidentId);
+            
+            const res = await fetch('/api/delete-incident', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                if (data.status === 'success') {
+                    const row = document.getElementById(`row-${incidentId}`);
+                    if (row) row.remove();
+                    
+                    // Update counter
+                    const countEl = document.getElementById('total-incidents-count');
+                    if (countEl) {
+                        let cur = parseInt(countEl.innerText) || 0;
+                        countEl.innerText = Math.max(0, cur - 1);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function clearAllLogs() {
+        if (!confirm('Are you sure you want to permanently clear all recorded logs and snapshot evidence?')) return;
+        
+        try {
+            const res = await fetch('/api/clear-all-incidents', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken }
+            });
+            
+            if (res.ok) {
+                window.location.reload();
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+{% endblock %}
+
