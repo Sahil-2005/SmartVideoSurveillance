@@ -210,14 +210,17 @@
         /* Stats Row */
         .stats-row {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1.5rem;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 1.2rem;
         }
 
-        @media (max-width: 1250px) {
+        @media (max-width: 1400px) {
+            .stats-row { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 900px) {
             .stats-row { grid-template-columns: repeat(2, 1fr); }
         }
-        @media (max-width: 680px) {
+        @media (max-width: 600px) {
             .stats-row { grid-template-columns: 1fr; }
         }
 
@@ -242,6 +245,7 @@
         .icon-green { background: rgba(16, 185, 129, 0.1); color: #10b981; }
         .icon-blue { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
         .icon-red { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+        .icon-orange { background: rgba(249, 115, 22, 0.15); color: #f97316; }
 
         /* Security Alert Banner */
         .alert-banner {
@@ -546,11 +550,20 @@
                     </div>
                 </div>
 
+                <div class="stat-box" id="weapon-stat-box">
+                    <div class="stat-icon icon-orange"><i class="fa-solid fa-gun"></i></div>
+                    <div class="stat-info">
+                        <h3>Weapons Found</h3>
+                        <div class="value" id="stat-weapons" style="color: #f97316;">0</div>
+                        <div class="sub-text" id="stat-weapons-sub">No threats detected</div>
+                    </div>
+                </div>
+
                 <div class="stat-box">
                     <div class="stat-icon icon-blue"><i class="fa-solid fa-shield-halved"></i></div>
                     <div class="stat-info">
                         <h3>System Status</h3>
-                        <div class="value" id="stat-sys" style="font-size: 1.25rem;">Monitoring</div>
+                        <div class="value" id="stat-sys" style="font-size: 1.15rem;">Monitoring</div>
                         <div class="sub-text">AI Engine running</div>
                     </div>
                 </div>
@@ -968,20 +981,59 @@
                     const bannerEl = document.getElementById('intrusion-banner');
                     const intruderBox = document.getElementById('intruder-stat-box');
                     const intruderSub = document.getElementById('stat-intruders-sub');
+                    const weaponEl = document.getElementById('stat-weapons');
+                    const weaponBox = document.getElementById('weapon-stat-box');
+                    const weaponSub = document.getElementById('stat-weapons-sub');
                     
                     if (intruderEl) {
                         intruderEl.innerText = data.intruder_count || 0;
                     }
+                    if (weaponEl) {
+                        weaponEl.innerText = data.weapon_count || 0;
+                    }
                     
                     if (data.alert_active) {
-                        if (bannerEl) bannerEl.style.display = 'flex';
-                        if (intruderBox) {
+                        if (bannerEl) {
+                            bannerEl.style.display = 'flex';
+                            if (data.threat_type === 'WEAPON') {
+                                bannerEl.innerHTML = `
+                                    <div class="alert-banner-content">
+                                        <i class="fa-solid fa-gun fa-beat-fade" style="color: #fef08a;"></i>
+                                        <div>
+                                            <strong>CRITICAL WEAPON THREAT DETECTED:</strong>
+                                            <span>Armed individual / weapon detected in video feed! Evidence snapshot captured.</span>
+                                        </div>
+                                    </div>
+                                    <div class="alert-badge-live" style="background: rgba(220, 38, 38, 0.8);">WEAPON ALERT</div>
+                                `;
+                            } else {
+                                bannerEl.innerHTML = `
+                                    <div class="alert-banner-content">
+                                        <i class="fa-solid fa-triangle-exclamation fa-beat-fade"></i>
+                                        <div>
+                                            <strong>SECURITY BREACH DETECTED:</strong>
+                                            <span>Unauthorized individual inside Restricted Zone! Capturing evidence.</span>
+                                        </div>
+                                    </div>
+                                    <div class="alert-badge-live">BREACH ACTIVE</div>
+                                `;
+                            }
+                        }
+                        if (intruderBox && data.intruder_count > 0) {
                             intruderBox.style.borderColor = '#ef4444';
                             intruderBox.style.boxShadow = '0 0 15px rgba(239, 68, 68, 0.4)';
+                            if (intruderSub) {
+                                intruderSub.innerText = "CRITICAL BREACH!";
+                                intruderSub.style.color = "#ef4444";
+                            }
                         }
-                        if (intruderSub) {
-                            intruderSub.innerText = "CRITICAL BREACH!";
-                            intruderSub.style.color = "#ef4444";
+                        if (weaponBox && data.weapon_count > 0) {
+                            weaponBox.style.borderColor = '#f97316';
+                            weaponBox.style.boxShadow = '0 0 15px rgba(249, 115, 22, 0.4)';
+                            if (weaponSub) {
+                                weaponSub.innerText = "ARMED THREAT DETECTED!";
+                                weaponSub.style.color = "#f97316";
+                            }
                         }
                         playAlertChime();
                     } else {
@@ -993,6 +1045,14 @@
                         if (intruderSub) {
                             intruderSub.innerText = "Secured perimeter";
                             intruderSub.style.color = "var(--text-muted)";
+                        }
+                        if (weaponBox) {
+                            weaponBox.style.borderColor = 'var(--panel-border)';
+                            weaponBox.style.boxShadow = 'none';
+                        }
+                        if (weaponSub) {
+                            weaponSub.innerText = "No threats detected";
+                            weaponSub.style.color = "var(--text-muted)";
                         }
                     }
 
