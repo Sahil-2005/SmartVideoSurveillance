@@ -608,5 +608,53 @@ def clear_all_incidents(request):
             return JsonResponse({'status': 'success'})
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)})
-    return JsonResponse({'status': 'error', 'message': 'Invalid request'})
+@auth_required
+def get_analytics(request):
+    from django.utils import timezone
+    from datetime import timedelta
+    from django.db.models import Count
+
+    now = timezone.now()
+    seven_days_ago = now - timedelta(days=6)
+
+    # 1. Threat Type Breakdown
+    all_incidents = SecurityIncident.objects.all()
+    total_count = all_incidents.count()
+    
+    weapon_count = all_incidents.filter(threat_type__icontains='WEAPON').count()
+    intrusion_count = all_incidents.filter(threat_type__icontains='INTRUSION').count()
+    other_count = max(0, total_count - weapon_count - intrusion_count)
+
+    # 2. Last 7 Days Incident Trend
+    daily_labels = []
+    daily_values = []
+    for i in range(7):
+        day_date = (seven_days_ago + timedelta(days=i)).date()
+        daily_labels.append(day_date.strftime('%b %d'))
+        day_count = all_incidents.filter(timestamp__date=day_date).count()
+        daily_values.append(day_count)
+
+    # 3. Peak Threat Hours (Grouped by 4-hour windows)
+    hourly_labels = ["00-04h", "04-08h", "08-12h", "12-16h", "16-20h", "20-24h"]
+    hourly_values = [0] * 6
+    for inc in all_incidents:
+        h = inc.timestamp.hour
+        window_idx = min(5, h // 4)
+        hourly_values[window_idx] += 1
+
+    return JsonResponse({
+        'total': total_count,
+        'breakdown': {
+            'labels': ['Intrusions', 'Weapons', 'Other'],
+            'data': [intrusion_count, weapon_count, other_count]
+        },
+        'trend': {
+            'labels': daily_labels,
+            'data': daily_values
+        },
+        'hourly': {
+            'labels': hourly_labels,
+            'data': hourly_values
+        }
+    })
 
