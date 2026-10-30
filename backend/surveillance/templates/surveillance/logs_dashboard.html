@@ -5,19 +5,30 @@
     <div class="panel-header" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
         <div>
             <h3 style="display: flex; align-items: center; gap: 10px;">
-                <i class="fa-solid fa-file-shield" style="color: #ef4444;"></i> Security Incident Audit Log
+                <i class="fa-solid fa-file-shield" style="color: #ef4444;"></i> Multi-Camera Incident Audit Log
             </h3>
             <span style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; display: inline-block;">
                 Total Verified Threats: <strong id="total-incidents-count" style="color: #fff;">{{ total_incidents }}</strong>
             </span>
         </div>
-        <div style="display: flex; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <!-- Filter by Camera -->
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <label style="font-size: 0.8rem; color: var(--text-muted);"><i class="fa-solid fa-filter"></i> Camera:</label>
+                <select class="form-control" style="width: auto; padding: 6px 12px; font-size: 0.8rem; background: rgba(15, 23, 42, 0.9);" onchange="window.location.href = this.value ? '/logs-dashboard?camera_id=' + this.value : '/logs-dashboard'">
+                    <option value="">All Cameras</option>
+                    {% for c in cameras %}
+                    <option value="{{ c.id }}" {% if selected_camera_id == c.id %}selected{% endif %}>{{ c.name }} ({{ c.get_camera_type_display }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
             {% if incidents %}
-            <button class="btn btn-outline" onclick="clearAllLogs()" style="padding: 8px 15px; font-size: 0.85rem; color: #f87171; border-color: rgba(239,68,68,0.3);">
+            <button class="btn btn-outline" onclick="clearAllLogs()" style="padding: 7px 15px; font-size: 0.8rem; color: #f87171; border-color: rgba(239,68,68,0.3);">
                 <i class="fa-solid fa-trash-can"></i> Clear All Logs
             </button>
             {% endif %}
-            <button class="btn btn-outline" onclick="window.location.reload()" style="padding: 8px 15px; font-size: 0.85rem;">
+            <button class="btn btn-outline" onclick="window.location.reload()" style="padding: 7px 15px; font-size: 0.8rem;">
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
             </button>
         </div>
@@ -29,9 +40,9 @@
                 <tr style="border-bottom: 1px solid var(--panel-border); color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">
                     <th style="padding: 14px;">Incident ID</th>
                     <th style="padding: 14px;">Timestamp (UTC)</th>
+                    <th style="padding: 14px;">Camera Source</th>
                     <th style="padding: 14px;">Threat Type</th>
                     <th style="padding: 14px;">Severity</th>
-                    <th style="padding: 14px;">Source</th>
                     <th style="padding: 14px;">Intruders</th>
                     <th style="padding: 14px;">Evidence</th>
                     <th style="padding: 14px; text-align: right;">Action</th>
@@ -43,6 +54,15 @@
                     <tr id="row-{{ inc.id }}" style="border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.9rem;">
                         <td style="padding: 14px; color: var(--text-muted); font-family: monospace;">#SEC-{{ inc.id|stringformat:"04d" }}</td>
                         <td style="padding: 14px; color: var(--text-main);">{{ inc.timestamp|date:"Y-m-d H:i:s" }}</td>
+                        <td style="padding: 14px;">
+                            {% if inc.camera %}
+                                <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 8px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; font-size: 0.78rem;">
+                                    <i class="fa-solid fa-video"></i> {{ inc.camera.name }}
+                                </span>
+                            {% else %}
+                                <span style="color: var(--text-muted); font-size: 0.82rem;">{{ inc.source }}</span>
+                            {% endif %}
+                        </td>
                         <td style="padding: 14px; font-weight: 600; color: #fca5a5;">
                             <i class="fa-solid fa-triangle-exclamation" style="margin-right: 6px; color: #ef4444;"></i>
                             {{ inc.threat_type }}
@@ -52,7 +72,6 @@
                                 {{ inc.severity }}
                             </span>
                         </td>
-                        <td style="padding: 14px; color: var(--text-muted); font-size: 0.85rem;">{{ inc.source }}</td>
                         <td style="padding: 14px; color: #fff; font-weight: 600;">{{ inc.intruder_count }}</td>
                         <td style="padding: 14px;">
                             {% if inc.snapshot %}
@@ -63,6 +82,7 @@
                                 <span style="color: var(--text-muted); font-size: 0.8rem;">No Image</span>
                             {% endif %}
                         </td>
+
                         <td style="padding: 14px; text-align: right;">
                             <button onclick="deleteLog({{ inc.id }})" class="btn btn-outline" style="padding: 5px 10px; font-size: 0.75rem; color: #f87171; border-color: rgba(239,68,68,0.2);" title="Delete Record">
                                 <i class="fa-solid fa-trash"></i>

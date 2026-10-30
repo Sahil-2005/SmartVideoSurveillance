@@ -454,9 +454,265 @@
             animation: spin 1s linear infinite;
         }
 
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* --- High-End Modal Dialog & Camera Management --- */
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(4, 7, 17, 0.85);
+            backdrop-filter: blur(12px);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+        }
+        .modal-window {
+            background: #111828;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 680px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 40px rgba(59, 130, 246, 0.15);
+            animation: modalSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes modalSlideIn {
+            from { opacity: 0; transform: scale(0.96) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .modal-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--panel-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255,255,255,0.02);
+        }
+        .modal-header h3 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .modal-close-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .modal-close-btn:hover {
+            color: #fff;
+            background: rgba(255,255,255,0.1);
+        }
+        .modal-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--panel-border);
+            background: rgba(0,0,0,0.25);
+        }
+        .modal-tab-btn {
+            flex: 1;
+            padding: 12px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .modal-tab-btn.active {
+            color: #60a5fa;
+            border-bottom-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.08);
+        }
+        .modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+        .form-label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #cbd5e1;
+            margin-bottom: 6px;
+        }
+        .form-control {
+            width: 100%;
+            padding: 10px 14px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-control:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+        .preset-badge {
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--panel-border);
+            color: #94a3b8;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .preset-badge:hover, .preset-badge.selected {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: #3b82f6;
+            color: #93c5fd;
+        }
 
+        /* --- Camera Card & Grid Tokens --- */
+        .cam-grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
+            gap: 1.5rem;
+        }
+        @media (max-width: 992px) {
+            .cam-grid-container { grid-template-columns: 1fr; }
+        }
+        .cam-tile {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+        }
+        .cam-tile:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 20px rgba(59, 130, 246, 0.15);
+            border-color: rgba(59, 130, 246, 0.4);
+        }
+        .cam-tile-header {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255,255,255,0.02);
+            border-bottom: 1px solid var(--panel-border);
+        }
+        .cam-tile-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .cam-tile-title h4 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #fff;
+        }
+        .cam-tile-title span {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .cam-tile-feed {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #000;
+            position: relative;
+            overflow: hidden;
+        }
+        .cam-tile-feed img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .cam-tile-hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: flex;
+            gap: 6px;
+            z-index: 5;
+        }
+        .hud-chip {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .cam-tile-footer {
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-top: 1px solid var(--panel-border);
+            background: rgba(0,0,0,0.15);
+            font-size: 0.8rem;
+        }
+
+        /* --- Pills & Mode Buttons --- */
+        .view-mode-tabs {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            background: rgba(15, 23, 42, 0.8);
+            padding: 4px;
+            border-radius: 12px;
+            border: 1px solid var(--panel-border);
+        }
+        .view-mode-btn {
+            padding: 6px 14px;
+            border-radius: 8px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .view-mode-btn.active {
+            background: var(--gradient-primary);
+            color: #fff;
+            box-shadow: 0 2px 10px rgba(59, 130, 246, 0.3);
+        }
     </style>
+
 </head>
 <body>
     {% csrf_token %}
@@ -475,6 +731,9 @@
             <a href="{% url 'dashboard' %}" class="nav-item {% if request.path == '/' %}active{% endif %}">
                 <i class="fa-solid fa-house"></i> Dashboard
             </a>
+            <a href="javascript:void(0)" onclick="openCameraModal()" class="nav-item">
+                <i class="fa-solid fa-camera"></i> Cameras
+            </a>
             <a href="{% url 'upload_dashboard' %}" class="nav-item {% if request.path == '/upload-dashboard' %}active{% endif %}">
                 <i class="fa-solid fa-cloud-arrow-up"></i> Media Upload
             </a>
@@ -487,9 +746,9 @@
         </ul>
 
         <div class="promo-card">
-            <h4>AI-Powered</h4>
-            <p>Security Solutions</p>
-            <p style="font-size: 0.7rem; margin-top:8px;">Smarter monitoring. Safer tomorrow.</p>
+            <h4>AI Multi-Camera</h4>
+            <p>Android IP & RTSP CCTV</p>
+            <p style="font-size: 0.7rem; margin-top:8px;">Fair round-robin CPU inference.</p>
         </div>
     </aside>
 
@@ -497,13 +756,20 @@
     <main class="main-content">
         <div class="top-bar">
             <div class="top-bar-icons">
-                <div class="status-pill">
-                    <div class="dot"></div> System Online
+                <button type="button" class="btn" onclick="openCameraModal('add')" style="padding: 7px 16px; font-size: 0.82rem; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); color: #93c5fd; border-radius: 20px;">
+                    <i class="fa-solid fa-plus"></i> Add Camera
+                </button>
+                <button type="button" class="btn" onclick="openCameraModal('list')" style="padding: 7px 16px; font-size: 0.82rem; border-radius: 20px;">
+                    <i class="fa-solid fa-sliders"></i> Manage Cameras
+                </button>
+                <div class="status-pill" id="top-system-pill">
+                    <div class="dot" id="top-system-dot"></div> <span id="top-system-text">System Online</span>
                 </div>
                 <div class="icon-btn"><i class="fa-regular fa-moon"></i></div>
                 <div class="icon-btn"><i class="fa-regular fa-user"></i></div>
             </div>
         </div>
+
 
         <div class="content-area">
             {% block main_content %}
@@ -777,6 +1043,110 @@
             {% endblock %}
         </div>
     </main>
+
+    <!-- Camera Management Modal -->
+    <div class="modal-backdrop" id="camera-modal">
+        <div class="modal-window">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-video" style="color: #60a5fa;"></i> Surveillance Camera Grid Manager</h3>
+                <button type="button" class="modal-close-btn" onclick="closeCameraModal()">&times;</button>
+            </div>
+            <div class="modal-tabs">
+                <button type="button" class="modal-tab-btn active" id="tab-btn-list" onclick="switchModalTab('list')">
+                    <i class="fa-solid fa-list-check"></i> Active Cameras (<span id="modal-cam-count">0</span>)
+                </button>
+                <button type="button" class="modal-tab-btn" id="tab-btn-add" onclick="switchModalTab('add')">
+                    <i class="fa-solid fa-plus-circle"></i> Add New Camera
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Tab 1: Camera List -->
+                <div id="modal-tab-list">
+                    <div id="modal-cam-loading" style="text-align: center; padding: 20px; color: var(--text-muted);">
+                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 8px;"></i>
+                        <div>Loading connected cameras...</div>
+                    </div>
+                    <div id="modal-cam-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
+                </div>
+
+                <!-- Tab 2: Add Camera -->
+                <div id="modal-tab-add" style="display: none;">
+                    <!-- Quick Presets -->
+                    <div style="margin-bottom: 1.2rem;">
+                        <span style="font-size: 0.78rem; color: var(--text-muted); display: block; margin-bottom: 8px;">Quick Presets:</span>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            <span class="preset-badge" onclick="quickPreset('ip_webcam')">
+                                <i class="fa-solid fa-mobile-screen"></i> Android Phone (IP Webcam)
+                            </span>
+                            <span class="preset-badge" onclick="quickPreset('webcam')">
+                                <i class="fa-solid fa-laptop"></i> Laptop Webcam (Device 0)
+                            </span>
+                            <span class="preset-badge" onclick="quickPreset('rtsp')">
+                                <i class="fa-solid fa-shield-halved"></i> RTSP CCTV Camera
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Setup Guide Box -->
+                    <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 12px; padding: 12px; margin-bottom: 1.2rem; font-size: 0.8rem; color: #cbd5e1;">
+                        <strong style="color: #93c5fd; display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                            <i class="fa-solid fa-circle-info"></i> How to use your Android Phone as a CCTV:
+                        </strong>
+                        <ol style="padding-left: 18px; line-height: 1.5; color: var(--text-muted);">
+                            <li>Install <strong>"IP Webcam"</strong> (by Pavel Khlebovich) free from Google Play Store.</li>
+                            <li>Ensure phone and laptop are connected to the <strong>same Wi-Fi network</strong>.</li>
+                            <li>Open IP Webcam, scroll down and tap <strong>"Start server"</strong>.</li>
+                            <li>Note the IP URL shown on phone (e.g. <code>http://192.168.1.5:8080</code>), enter <code>http://&lt;phone-ip&gt;:8080/video</code> below and test!</li>
+                        </ol>
+                    </div>
+
+                    <form id="add-camera-form" onsubmit="submitAddCamera(event)">
+                        <div class="form-group">
+                            <label class="form-label">Camera Name</label>
+                            <input type="text" id="add-cam-name" class="form-control" placeholder="e.g. Front Gate Phone, Entrance Hallway" required>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div class="form-group">
+                                <label class="form-label">Camera Type</label>
+                                <select id="add-cam-type" class="form-control" style="background: rgba(15, 23, 42, 0.95);">
+                                    <option value="ip_webcam">Android Phone (IP Webcam)</option>
+                                    <option value="rtsp">RTSP Stream / CCTV Camera</option>
+                                    <option value="webcam">Local / USB Webcam</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Physical Location</label>
+                                <input type="text" id="add-cam-location" class="form-control" placeholder="e.g. Building A - Level 1">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Stream URL / Device Index</label>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" id="add-cam-url" class="form-control" placeholder="http://192.168.1.105:8080/video or 0" required>
+                                <button type="button" class="btn" onclick="testCameraConnection()" style="white-space: nowrap; padding: 8px 14px; font-size: 0.8rem; background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.4); color: #93c5fd;">
+                                    <i class="fa-solid fa-satellite-dish"></i> Test Connection
+                                </button>
+                            </div>
+                            <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; display: block;">
+                                For Android IP Webcam, standard URL is <code>http://&lt;phone-ip&gt;:8080/video</code>
+                            </span>
+                        </div>
+
+                        <!-- Connection Test Result Banner -->
+                        <div id="test-feedback" style="display: none; padding: 10px 14px; border-radius: 10px; font-size: 0.8rem; margin-bottom: 1.2rem;"></div>
+
+                        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 1rem;">
+                            <button type="button" class="btn" onclick="closeCameraModal()">Cancel</button>
+                            <button type="submit" class="btn btn-primary" id="btn-submit-camera">
+                                <i class="fa-solid fa-circle-check"></i> Add Camera & Start Monitoring
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -1366,13 +1736,244 @@
             }
         }
 
-        // Initialize analytics on page load, and periodically refresh every 10 seconds
-        if (document.getElementById('trendChart')) {
-            fetchAnalytics();
-            setInterval(fetchAnalytics, 10000);
+        // Camera Modal Handlers
+        function openCameraModal(tab = 'list') {
+            document.getElementById('camera-modal').style.display = 'flex';
+            switchModalTab(tab);
+            if (tab === 'list') {
+                loadCameraListModal();
+            }
+        }
+
+        function closeCameraModal() {
+            document.getElementById('camera-modal').style.display = 'none';
+        }
+
+        function switchModalTab(tab) {
+            const btnList = document.getElementById('tab-btn-list');
+            const btnAdd = document.getElementById('tab-btn-add');
+            const tabList = document.getElementById('modal-tab-list');
+            const tabAdd = document.getElementById('modal-tab-add');
+
+            if (tab === 'list') {
+                btnList.classList.add('active');
+                btnAdd.classList.remove('active');
+                tabList.style.display = 'block';
+                tabAdd.style.display = 'none';
+                loadCameraListModal();
+            } else {
+                btnAdd.classList.add('active');
+                btnList.classList.remove('active');
+                tabAdd.style.display = 'block';
+                tabList.style.display = 'none';
+            }
+        }
+
+        function quickPreset(type) {
+            const typeSelect = document.getElementById('add-cam-type');
+            const urlInput = document.getElementById('add-cam-url');
+            const nameInput = document.getElementById('add-cam-name');
+            typeSelect.value = type;
+
+            if (type === 'ip_webcam') {
+                urlInput.value = 'http://192.168.1.100:8080/video';
+                if (!nameInput.value) nameInput.value = 'Android Phone Camera';
+            } else if (type === 'webcam') {
+                urlInput.value = '0';
+                if (!nameInput.value) nameInput.value = 'Laptop Webcam';
+            } else if (type === 'rtsp') {
+                urlInput.value = 'rtsp://admin:pass@192.168.1.50:554/stream1';
+                if (!nameInput.value) nameInput.value = 'CCTV Security Camera';
+            }
+        }
+
+        async function loadCameraListModal() {
+            const container = document.getElementById('modal-cam-container');
+            const loader = document.getElementById('modal-cam-loading');
+            const countEl = document.getElementById('modal-cam-count');
+            loader.style.display = 'block';
+
+            try {
+                const res = await fetch('/api/cameras');
+                if (res.ok) {
+                    const data = await res.json();
+                    const cams = data.cameras || [];
+                    if (countEl) countEl.innerText = cams.length;
+                    loader.style.display = 'none';
+
+                    if (cams.length === 0) {
+                        container.innerHTML = `
+                            <div style="text-align: center; padding: 30px; color: var(--text-muted);">
+                                <i class="fa-solid fa-camera-slash" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+                                No cameras configured. Click "Add New Camera" to connect your phone or webcam!
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    container.innerHTML = cams.map(c => `
+                        <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(59, 130, 246, 0.15); display: flex; align-items: center; justify-content: center; color: #60a5fa; font-size: 1.1rem;">
+                                    ${c.camera_type === 'ip_webcam' ? '<i class="fa-solid fa-mobile-screen"></i>' : (c.camera_type === 'webcam' ? '<i class="fa-solid fa-laptop"></i>' : '<i class="fa-solid fa-video"></i>')}
+                                </div>
+                                <div>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <strong style="font-size: 0.95rem; color: #fff;">${c.name}</strong>
+                                        <span class="status-dot ${c.is_active ? (c.status.includes('ONLINE') || c.status.includes('MONITORING') ? 'online' : 'offline') : 'offline'}"></span>
+                                        <span style="font-size: 0.72rem; color: ${c.is_active ? '#10b981' : '#64748b'};">${c.is_active ? c.status : 'Disabled'}</span>
+                                    </div>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+                                        <span>${c.location || 'Local Area'}</span> &bull; 
+                                        <code style="color: #94a3b8;">${c.stream_url}</code>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <button type="button" class="btn" onclick="toggleCameraModal(${c.id}, ${c.is_active})" style="padding: 6px 12px; font-size: 0.75rem; color: ${c.is_active ? '#f87171' : '#34d399'}; border-color: rgba(255,255,255,0.1);">
+                                    <i class="fa-solid ${c.is_active ? 'fa-pause' : 'fa-play'}"></i> ${c.is_active ? 'Disable' : 'Enable'}
+                                </button>
+                                <button type="button" class="btn" onclick="deleteCameraModal(${c.id}, '${c.name}')" style="padding: 6px 10px; font-size: 0.75rem; color: #f87171; border-color: rgba(239,68,68,0.25);" title="Delete Camera">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (err) {
+                loader.innerHTML = `<span style="color:#ef4444;">Error loading cameras: ${err}</span>`;
+            }
+        }
+
+        async function testCameraConnection() {
+            const urlInput = document.getElementById('add-cam-url');
+            const typeInput = document.getElementById('add-cam-type');
+            const feedback = document.getElementById('test-feedback');
+            const streamUrl = urlInput.value.trim();
+
+            if (!streamUrl) {
+                alert('Please enter a stream URL or camera index first.');
+                return;
+            }
+
+            feedback.style.display = 'block';
+            feedback.style.background = 'rgba(59, 130, 246, 0.15)';
+            feedback.style.border = '1px solid rgba(59, 130, 246, 0.4)';
+            feedback.style.color = '#93c5fd';
+            feedback.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Testing connection to video stream...';
+
+            try {
+                let formData = new FormData();
+                formData.append('stream_url', streamUrl);
+                formData.append('camera_type', typeInput.value);
+
+                const res = await fetch('/api/cameras/test', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                    body: formData
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    feedback.style.background = 'rgba(16, 185, 129, 0.15)';
+                    feedback.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+                    feedback.style.color = '#34d399';
+                    feedback.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${data.message}`;
+                } else {
+                    feedback.style.background = 'rgba(239, 68, 68, 0.15)';
+                    feedback.style.border = '1px solid rgba(239, 68, 68, 0.4)';
+                    feedback.style.color = '#fca5a5';
+                    feedback.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> ${data.error || 'Connection failed.'}`;
+                }
+            } catch (err) {
+                feedback.style.background = 'rgba(239, 68, 68, 0.15)';
+                feedback.style.color = '#fca5a5';
+                feedback.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Network error: ${err}`;
+            }
+        }
+
+        async function submitAddCamera(e) {
+            e.preventDefault();
+            const name = document.getElementById('add-cam-name').value.trim();
+            const streamUrl = document.getElementById('add-cam-url').value.trim();
+            const cameraType = document.getElementById('add-cam-type').value;
+            const location = document.getElementById('add-cam-location').value.trim();
+            const btn = document.getElementById('btn-submit-camera');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Adding camera...';
+
+            try {
+                let formData = new FormData();
+                formData.append('name', name);
+                formData.append('stream_url', streamUrl);
+                formData.append('camera_type', cameraType);
+                formData.append('location', location);
+
+                const res = await fetch('/api/cameras/add', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                    body: formData
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    document.getElementById('add-camera-form').reset();
+                    switchModalTab('list');
+                    if (window.refreshCameraDashboard) {
+                        window.refreshCameraDashboard();
+                    } else {
+                        window.location.reload();
+                    }
+                } else {
+                    alert(data.message || 'Error adding camera');
+                }
+            } catch (err) {
+                alert('Request error: ' + err);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Add Camera & Start Monitoring';
+            }
+        }
+
+        async function toggleCameraModal(camId, curActive) {
+            const nextAction = curActive ? 'off' : 'on';
+            try {
+                let formData = new FormData();
+                formData.append('action', nextAction);
+
+                const res = await fetch(`/api/cameras/${camId}/toggle`, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                    body: formData
+                });
+                if (res.ok) {
+                    loadCameraListModal();
+                    if (window.refreshCameraDashboard) window.refreshCameraDashboard();
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function deleteCameraModal(camId, camName) {
+            if (!confirm(`Are you sure you want to remove "${camName}" from surveillance grid?`)) return;
+            try {
+                const res = await fetch(`/api/cameras/${camId}/delete`, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken }
+                });
+                if (res.ok) {
+                    loadCameraListModal();
+                    if (window.refreshCameraDashboard) window.refreshCameraDashboard();
+                }
+            } catch (err) {
+                console.error(err);
+            }
         }
         
         {% block extra_scripts %}{% endblock %}
     </script>
 </body>
 </html>
+
