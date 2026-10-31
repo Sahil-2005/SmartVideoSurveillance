@@ -1862,6 +1862,9 @@
             feedback.style.color = '#93c5fd';
             feedback.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Testing connection to video stream...';
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4500);
+
             try {
                 let formData = new FormData();
                 formData.append('stream_url', streamUrl);
@@ -1870,8 +1873,10 @@
                 const res = await fetch('/api/cameras/test', {
                     method: 'POST',
                     headers: { 'X-CSRFToken': csrfToken },
-                    body: formData
+                    body: formData,
+                    signal: controller.signal
                 });
+                clearTimeout(timeoutId);
                 const data = await res.json();
 
                 if (data.success) {
@@ -1886,9 +1891,15 @@
                     feedback.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> ${data.error || 'Connection failed.'}`;
                 }
             } catch (err) {
+                clearTimeout(timeoutId);
                 feedback.style.background = 'rgba(239, 68, 68, 0.15)';
+                feedback.style.border = '1px solid rgba(239, 68, 68, 0.4)';
                 feedback.style.color = '#fca5a5';
-                feedback.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Network error: ${err}`;
+                if (err.name === 'AbortError') {
+                    feedback.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Probe timed out. Cannot reach this IP address. Ensure your phone and laptop are on the same Wi-Fi and "Start server" is active in IP Webcam.`;
+                } else {
+                    feedback.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Network error: ${err.message || err}`;
+                }
             }
         }
 

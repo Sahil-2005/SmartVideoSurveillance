@@ -411,6 +411,23 @@ class CameraProcessor:
                 else:
                     cap = cv2.VideoCapture(source)
             else:
+                # Fast pre-flight network reachability check (1.5s timeout)
+                if isinstance(source, str) and source.startswith(('http://', 'https://', 'rtsp://')):
+                    import urllib.parse
+                    import socket
+                    parsed = urllib.parse.urlparse(source)
+                    if parsed.hostname:
+                        port = parsed.port or (80 if parsed.scheme == 'http' else (443 if parsed.scheme == 'https' else 554))
+                        try:
+                            sock = socket.create_connection((parsed.hostname, port), timeout=1.5)
+                            sock.close()
+                        except Exception:
+                            with self.lock:
+                                self.status = "RECONNECTING"
+                                self.latest_jpeg = self._create_standby_frame("PHONE OFFLINE (CHECK WI-FI)")
+                            time.sleep(2.5)
+                            continue
+
                 cap = cv2.VideoCapture(source)
 
             # Performance optimizations for network streams
@@ -930,11 +947,36 @@ class CameraManager:
                 else:
                     cap = cv2.VideoCapture(source)
             else:
+                # Fast pre-flight check for HTTP / RTSP streams (2.0s timeout)
+                import urllib.parse
+                import socket
+                parsed = urllib.parse.urlparse(source)
+                if parsed.hostname:
+                    port = parsed.port or (80 if parsed.scheme == 'http' else (443 if parsed.scheme == 'https' else 554))
+                    try:
+                        sock = socket.create_connection((parsed.hostname, port), timeout=2.0)
+                        sock.close()
+                    except (socket.timeout, TimeoutError):
+                        return {
+                            'success': False,
+                            'error': f"Connection timed out reaching {parsed.hostname}:{port}. Check that the phone is on the same Wi-Fi network and 'Start server' is running in IP Webcam."
+                        }
+                    except ConnectionRefusedError:
+                        return {
+                            'success': False,
+                            'error': f"Connection refused by {parsed.hostname}:{port}. The phone is reachable, but IP Webcam server is not started. Open the app, scroll to the bottom, and tap 'Start server'."
+                        }
+                    except Exception as net_err:
+                        return {
+                            'success': False,
+                            'error': f"Cannot connect to {parsed.hostname}:{port}: {net_err}"
+                        }
+
                 cap = cv2.VideoCapture(source)
             if not cap.isOpened():
                 return {
                     'success': False,
-                    'error': 'Could not open stream. Check IP address, port, and Wi-Fi connection.'
+                    'error': 'Could not open video stream. Check IP address, port, and stream path (e.g. /video).'
                 }
 
             ret, frame = cap.read()

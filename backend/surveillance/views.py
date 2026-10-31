@@ -201,8 +201,14 @@ def camera_add(request):
         camera_type = request.POST.get('camera_type', 'ip_webcam')
         location = request.POST.get('location', '').strip()
 
-        if not name or not stream_url:
-            return JsonResponse({'status': 'error', 'message': 'Name and Stream URL are required.'})
+        if not stream_url:
+            return JsonResponse({'status': 'error', 'message': 'Stream URL is required.'})
+
+        if not name:
+            if location:
+                name = f"Phone ({location})" if camera_type == 'ip_webcam' else f"Camera ({location})"
+            else:
+                name = f"Android Phone #{Camera.objects.count() + 1}" if camera_type == 'ip_webcam' else f"Security Camera #{Camera.objects.count() + 1}"
 
         cam = Camera.objects.create(
             name=name,
