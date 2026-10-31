@@ -3,27 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aegis SOC - Operator Authentication</title>
-    <!-- Cyber Fonts & Icons -->
+    <title>Smart CCTV - Operator Authentication</title>
+    <!-- Modern Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --bg-void: #050711;
-            --panel-glass: rgba(12, 18, 34, 0.88);
-            --panel-border: rgba(56, 189, 248, 0.2);
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --text-dim: #64748b;
-            --cyan-neon: #00f0ff;
-            --emerald-neon: #10b981;
-            --crimson-neon: #ff1744;
-            --gradient-cyber: linear-gradient(135deg, #00f0ff 0%, #3b82f6 50%, #8b5cf6 100%);
-            --font-display: 'Outfit', sans-serif;
-            --font-mono: 'JetBrains Mono', monospace;
+            --bg-canvas: #f0f4f9;
+            --bg-card: #ffffff;
+            --border-card: #e2e8f0;
+            --text-heading: #0f172a;
+            --text-body: #334155;
+            --text-muted: #64748b;
+            --primary-blue: #1d6ff2;
+            --primary-blue-gradient: linear-gradient(135deg, #1d6ff2 0%, #2563eb 100%);
+            --primary-blue-light: #eff6ff;
+            --primary-blue-border: #bfdbfe;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
             --font-body: 'Plus Jakarta Sans', sans-serif;
+            --font-display: 'Outfit', sans-serif;
         }
 
         * {
@@ -34,282 +35,219 @@
 
         body {
             font-family: var(--font-body);
-            background-color: var(--bg-void);
+            background-color: var(--bg-canvas);
             background-image: 
-                radial-gradient(circle at 50% 15%, rgba(0, 240, 255, 0.12) 0%, transparent 60%),
-                radial-gradient(circle at 15% 85%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
-                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+                radial-gradient(circle at 50% 10%, rgba(29, 111, 242, 0.08) 0%, transparent 60%),
+                radial-gradient(circle at 10% 85%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+                linear-gradient(rgba(226, 232, 240, 0.5) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(226, 232, 240, 0.5) 1px, transparent 1px);
             background-size: 100% 100%, 100% 100%, 36px 36px, 36px 36px;
-            color: var(--text-main);
+            color: var(--text-body);
             height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
-            position: relative;
-        }
-
-        /* Ambient scanline overlay */
-        .cyber-scanline {
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
-            background-size: 100% 4px;
-            pointer-events: none;
-            z-index: 1;
-            opacity: 0.4;
+            padding: 1.5rem;
+            -webkit-font-smoothing: antialiased;
         }
 
         .login-card {
-            background: var(--panel-glass);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--panel-border);
-            border-radius: 22px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-card);
+            border-radius: 24px;
             padding: 3rem 2.8rem;
             width: 100%;
             max-width: 440px;
-            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.75), 0 0 40px rgba(0, 240, 255, 0.15);
+            box-shadow: 0 20px 45px -10px rgba(15, 23, 42, 0.1), 0 0 1px rgba(15, 23, 42, 0.15);
             text-align: center;
             position: relative;
             z-index: 10;
-            overflow: hidden;
-            animation: fadeIn 0.4s ease-out;
+            animation: fadeIn 0.3s ease-out;
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(12px) scale(0.98); }
+            from { opacity: 0; transform: translateY(10px) scale(0.98); }
             to { opacity: 1; transform: translateY(0) scale(1); }
         }
 
-        /* Top glowing accent line */
-        .login-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; height: 3px;
-            background: var(--gradient-cyber);
-            box-shadow: 0 0 15px var(--cyan-neon);
-        }
-
-        /* Corner brackets */
-        .corner-bracket {
-            position: absolute;
-            width: 12px; height: 12px;
-            border: 2px solid var(--cyan-neon);
-            pointer-events: none;
-            opacity: 0.6;
-        }
-        .cb-tl { top: 12px; left: 12px; border-right: none; border-bottom: none; }
-        .cb-tr { top: 12px; right: 12px; border-left: none; border-bottom: none; }
-        .cb-bl { bottom: 12px; left: 12px; border-right: none; border-top: none; }
-        .cb-br { bottom: 12px; right: 12px; border-left: none; border-top: none; }
-
-        .logo-icon {
-            width: 64px;
-            height: 64px;
-            background: var(--gradient-cyber);
-            border-radius: 18px;
+        .login-logo {
+            width: 58px;
+            height: 58px;
+            background: var(--primary-blue-gradient);
+            border-radius: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
+            margin: 0 auto 1.2rem;
+            color: #ffffff;
             font-size: 1.8rem;
-            color: #030712;
-            margin: 0 auto 1.5rem;
-            box-shadow: 0 0 30px rgba(0, 240, 255, 0.6);
-            position: relative;
+            box-shadow: 0 8px 24px rgba(29, 111, 242, 0.35);
         }
 
-        .soc-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 4px 12px;
-            border-radius: 20px;
-            background: rgba(0, 240, 255, 0.1);
-            border: 1px solid rgba(0, 240, 255, 0.3);
-            font-family: var(--font-mono);
-            font-size: 0.72rem;
-            color: var(--cyan-neon);
-            letter-spacing: 0.08em;
-            margin-bottom: 1.2rem;
-        }
-
-        .soc-beacon-dot {
-            width: 7px; height: 7px;
-            border-radius: 50%;
-            background: var(--emerald-neon);
-            box-shadow: 0 0 8px var(--emerald-neon);
-            animation: beaconPulse 1.8s infinite;
-        }
-        @keyframes beaconPulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(0.8); }
-        }
-
-        h2 {
+        .login-card h2 {
             font-family: var(--font-display);
-            font-size: 1.6rem;
-            font-weight: 700;
-            color: #fff;
-            margin-bottom: 6px;
+            font-size: 1.55rem;
+            font-weight: 800;
+            color: var(--text-heading);
             letter-spacing: -0.02em;
+            margin-bottom: 4px;
         }
 
-        p {
+        .login-card p.subtitle {
+            font-size: 0.85rem;
             color: var(--text-muted);
-            font-size: 0.88rem;
             margin-bottom: 2rem;
         }
 
-        .input-group {
+        .error-message {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 0.82rem;
+            font-weight: 600;
             margin-bottom: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
             text-align: left;
         }
 
-        .input-group label {
+        .form-group {
+            margin-bottom: 1.3rem;
+            text-align: left;
+        }
+
+        .form-label {
             display: block;
-            font-size: 0.78rem;
-            font-family: var(--font-mono);
-            color: var(--text-dim);
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-heading);
+            margin-bottom: 6px;
         }
 
         .input-wrapper {
             position: relative;
-            display: flex;
-            align-items: center;
         }
 
-        .input-wrapper i {
+        .input-icon {
             position: absolute;
             left: 14px;
-            color: var(--text-dim);
-            font-size: 1rem;
-            transition: color 0.2s;
-        }
-
-        .input-wrapper input {
-            width: 100%;
-            padding: 13px 14px 13px 44px;
-            background: rgba(6, 11, 24, 0.85);
-            border: 1px solid var(--panel-border);
-            border-radius: 12px;
-            color: white;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
             font-size: 0.95rem;
-            font-family: var(--font-body);
-            transition: all 0.25s;
-            outline: none;
+            pointer-events: none;
         }
 
-        .input-wrapper input:focus {
-            border-color: var(--cyan-neon);
-            box-shadow: 0 0 15px rgba(0, 240, 255, 0.25);
-            background: rgba(8, 14, 30, 0.95);
-        }
-
-        .input-wrapper input:focus + i,
-        .input-wrapper:focus-within i {
-            color: var(--cyan-neon);
-        }
-
-        .btn-primary {
+        .form-control {
             width: 100%;
-            padding: 14px;
+            padding: 11px 14px 11px 42px;
+            background: #ffffff;
+            border: 1px solid var(--border-card);
             border-radius: 12px;
-            border: none;
-            background: var(--gradient-cyber);
-            color: #030712;
-            font-weight: 700;
-            font-size: 0.98rem;
-            font-family: var(--font-display);
-            cursor: pointer;
-            transition: all 0.25s;
-            margin-top: 1rem;
-            box-shadow: 0 4px 20px rgba(0, 240, 255, 0.4);
-            letter-spacing: 0.02em;
+            color: var(--text-heading);
+            font-size: 0.92rem;
+            outline: none;
+            transition: all 0.2s;
+            font-family: var(--font-body);
         }
 
-        .btn-primary:hover {
-            opacity: 0.95;
-            box-shadow: 0 6px 25px rgba(0, 240, 255, 0.6);
-            transform: translateY(-1px);
+        .form-control:focus {
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(29, 111, 242, 0.15);
         }
 
-        .error {
-            color: #ff809b;
-            background: rgba(255, 23, 68, 0.12);
-            border: 1px solid var(--crimson-neon);
+        .btn-submit {
+            width: 100%;
             padding: 12px;
-            border-radius: 10px;
-            font-size: 0.84rem;
-            margin-bottom: 1.4rem;
-            font-family: var(--font-mono);
+            background: var(--primary-blue-gradient);
+            border: none;
+            border-radius: 12px;
+            color: #ffffff;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 6px 18px rgba(29, 111, 242, 0.35);
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
+            margin-top: 0.5rem;
         }
 
-        .card-footer {
+        .btn-submit:hover {
+            opacity: 0.95;
+            transform: translateY(-1px);
+            box-shadow: 0 10px 25px rgba(29, 111, 242, 0.45);
+        }
+
+        .security-badge {
             margin-top: 2rem;
             padding-top: 1.2rem;
-            border-top: 1px solid rgba(255,255,255,0.06);
-            font-family: var(--font-mono);
-            font-size: 0.72rem;
-            color: var(--text-dim);
+            border-top: 1px solid var(--border-card);
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--accent-green);
+        }
+
+        .status-dot-pulse {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
         }
     </style>
 </head>
 <body>
-    <div class="cyber-scanline"></div>
-
     <div class="login-card">
-        <!-- Reticle Corners -->
-        <div class="corner-bracket cb-tl"></div>
-        <div class="corner-bracket cb-tr"></div>
-        <div class="corner-bracket cb-bl"></div>
-        <div class="corner-bracket cb-br"></div>
-
-        <div class="logo-icon"><i class="fa-solid fa-shield-halved"></i></div>
-        <div class="soc-badge">
-            <span class="soc-beacon-dot"></span> SECURE OPERATOR ACCESS // LEVEL 4
+        <!-- Logo -->
+        <div class="login-logo">
+            <i class="fa-solid fa-shield-halved"></i>
         </div>
-        <h2>Aegis SOC Command</h2>
-        <p>Authenticate operator credentials to unlock surveillance stream</p>
+
+        <h2>Smart CCTV</h2>
+        <p class="subtitle">Surveillance System &bull; Secure Portal Login</p>
 
         {% if error %}
-        <div class="error"><i class="fa-solid fa-circle-exclamation"></i> {{ error }}</div>
+        <div class="error-message">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span>{{ error }}</span>
+        </div>
         {% endif %}
 
-        <form method="POST">
+        <form method="POST" action="{% url 'login' %}">
             {% csrf_token %}
-            <div class="input-group">
-                <label>Operator ID / Username</label>
+            <div class="form-group">
+                <label class="form-label">Operator Username</label>
                 <div class="input-wrapper">
-                    <input type="text" name="username" placeholder="e.g. admin" required autofocus>
-                    <i class="fa-solid fa-user-shield"></i>
+                    <i class="fa-solid fa-user input-icon"></i>
+                    <input type="text" name="username" class="form-control" placeholder="admin" required autofocus>
                 </div>
             </div>
-            <div class="input-group">
-                <label>Security Keyphrase</label>
+
+            <div class="form-group">
+                <label class="form-label">Security Passcode</label>
                 <div class="input-wrapper">
-                    <input type="password" name="password" placeholder="Enter password" required>
-                    <i class="fa-solid fa-key"></i>
+                    <i class="fa-solid fa-lock input-icon"></i>
+                    <input type="password" name="password" class="form-control" placeholder="••••••••" required>
                 </div>
             </div>
-            <button type="submit" class="btn-primary">
-                <i class="fa-solid fa-lock-open" style="margin-right: 6px;"></i> Authenticate & Initialize
+
+            <button type="submit" class="btn-submit">
+                <i class="fa-solid fa-arrow-right-to-bracket"></i> Authenticate & Enter
             </button>
         </form>
 
-        <div class="card-footer">
-            <span>EDGE AI ENCRYPTED</span>
-            <span>INTEL i3 CPU CORE</span>
+        <div class="security-badge">
+            <span class="status-dot-pulse"></span> All Systems Online &bull; 256-bit Encrypted Session
         </div>
     </div>
 </body>

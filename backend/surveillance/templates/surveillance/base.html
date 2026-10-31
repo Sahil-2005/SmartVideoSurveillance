@@ -3,38 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aegis SOC - Smart AI Video Surveillance</title>
-    <!-- Modern Cyber Fonts & Icons -->
+    <title>Smart CCTV - Surveillance System</title>
+    <!-- Google Fonts: Plus Jakarta Sans & Outfit -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --bg-void: #050711;
-            --bg-surface: #0a0e1c;
-            --panel-glass: rgba(12, 18, 34, 0.78);
-            --panel-glass-hover: rgba(18, 26, 48, 0.88);
-            --panel-border: rgba(56, 189, 248, 0.16);
-            --panel-border-hover: rgba(0, 240, 255, 0.4);
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --text-dim: #64748b;
-            --cyan-neon: #00f0ff;
-            --cyan-glow: 0 0 15px rgba(0, 240, 255, 0.45);
-            --blue-neon: #38bdf8;
-            --indigo-neon: #6366f1;
-            --purple-neon: #a855f7;
-            --emerald-neon: #10b981;
-            --crimson-neon: #ff1744;
-            --crimson-glow: 0 0 20px rgba(255, 23, 68, 0.55);
-            --amber-neon: #f59e0b;
-            --gradient-cyber: linear-gradient(135deg, #00f0ff 0%, #3b82f6 50%, #8b5cf6 100%);
-            --gradient-danger: linear-gradient(135deg, #ff1744 0%, #b91c1c 100%);
-            --font-display: 'Outfit', sans-serif;
-            --font-mono: 'JetBrains Mono', monospace;
+            /* Theme Color Tokens - Modern Enterprise SOC Light Theme */
+            --bg-canvas: #f0f4f9;
+            --bg-card: #ffffff;
+            --bg-card-subtle: #f8fafc;
+            --border-card: #e2e8f0;
+            --border-subtle: #edf2f7;
+            
+            --text-heading: #0f172a;
+            --text-body: #334155;
+            --text-muted: #64748b;
+            --text-light: #94a3b8;
+
+            /* Brand Primary Royal & Dodger Blues */
+            --primary-blue: #1d6ff2;
+            --primary-blue-gradient: linear-gradient(135deg, #1d6ff2 0%, #2563eb 100%);
+            --primary-blue-light: #eff6ff;
+            --primary-blue-border: #bfdbfe;
+            --primary-blue-glow: 0 6px 18px rgba(29, 111, 242, 0.35);
+
+            /* Accents Matching Reference Image */
+            --accent-purple: #8b5cf6;
+            --accent-purple-light: #f5f3ff;
+            --accent-purple-border: #ddd6fe;
+
+            --accent-red: #ef4444;
+            --accent-red-dark: #dc2626;
+            --accent-red-light: #fef2f2;
+            --accent-red-border: #fecaca;
+
+            --accent-green: #10b981;
+            --accent-green-dark: #059669;
+            --accent-green-light: #ecfdf5;
+            --accent-green-border: #a7f3d0;
+
+            --accent-orange: #f59e0b;
+            --accent-orange-light: #fffbeb;
+            --accent-orange-border: #fde68a;
+
+            /* Soft Modern Layered Shadows */
+            --shadow-card: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
+            --shadow-card-hover: 0 12px 28px -4px rgba(15, 23, 42, 0.08), 0 4px 10px -2px rgba(15, 23, 42, 0.04);
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+
             --font-body: 'Plus Jakarta Sans', sans-serif;
+            --font-display: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
         }
 
         * {
@@ -45,88 +68,64 @@
 
         body {
             font-family: var(--font-body);
-            background-color: var(--bg-void);
-            background-image: 
-                radial-gradient(circle at 50% 0%, rgba(14, 165, 233, 0.12) 0%, transparent 60%),
-                radial-gradient(circle at 10% 80%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
-                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-            background-size: 100% 100%, 100% 100%, 36px 36px, 36px 36px;
-            color: var(--text-main);
+            background-color: var(--bg-canvas);
+            color: var(--text-body);
             height: 100vh;
             overflow: hidden;
             display: flex;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* High-Tech Cyber Sidebar */
+        /* --- Crisp White Sidebar Navigation --- */
         .sidebar {
-            width: 270px;
-            background: rgba(8, 12, 24, 0.92);
-            backdrop-filter: blur(20px);
-            border-right: 1px solid var(--panel-border);
+            width: 260px;
+            background: #ffffff;
+            border-right: 1px solid var(--border-card);
             display: flex;
             flex-direction: column;
-            padding: 1.5rem 1rem;
+            padding: 1.5rem 1.1rem;
             position: relative;
-            z-index: 20;
-        }
-
-        .sidebar::after {
-            content: '';
-            position: absolute;
-            top: 0; right: 0; width: 1px; height: 100%;
-            background: linear-gradient(180deg, rgba(0,240,255,0.4) 0%, rgba(99,102,241,0.2) 50%, transparent 100%);
+            z-index: 30;
+            flex-shrink: 0;
         }
 
         .logo-area {
             display: flex;
             align-items: center;
-            gap: 14px;
+            gap: 12px;
             margin-bottom: 2rem;
-            padding: 0 8px;
+            padding: 0 6px;
+            text-decoration: none;
         }
-        
-        .logo-icon {
+
+        .logo-badge {
             width: 44px;
             height: 44px;
-            background: var(--gradient-cyber);
+            background: var(--primary-blue-gradient);
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 1.3rem;
-            color: #030712;
-            box-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
-            position: relative;
-        }
-
-        .logo-icon::after {
-            content: '';
-            position: absolute;
-            inset: -2px;
-            border-radius: 14px;
-            background: var(--gradient-cyber);
-            z-index: -1;
-            opacity: 0.4;
-            filter: blur(4px);
+            color: #ffffff;
+            box-shadow: var(--primary-blue-glow);
+            flex-shrink: 0;
         }
 
         .logo-text h2 {
             font-family: var(--font-display);
-            font-size: 1.2rem;
+            font-size: 1.18rem;
             font-weight: 700;
+            color: var(--text-heading);
             letter-spacing: -0.02em;
-            background: linear-gradient(180deg, #fff 0%, #94a3b8 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            line-height: 1.2;
         }
 
         .logo-text span {
-            font-family: var(--font-mono);
             font-size: 0.72rem;
-            color: var(--cyan-neon);
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
+            color: var(--text-muted);
+            font-weight: 500;
+            display: block;
         }
 
         .nav-menu {
@@ -134,753 +133,589 @@
             display: flex;
             flex-direction: column;
             gap: 6px;
+            flex: 1;
         }
 
         .nav-item {
             display: flex;
             align-items: center;
-            gap: 14px;
-            padding: 12px 16px;
-            border-radius: 10px;
+            gap: 12px;
+            padding: 11px 16px;
+            border-radius: 12px;
             color: var(--text-muted);
             text-decoration: none;
             font-weight: 500;
             font-size: 0.92rem;
-            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
             position: relative;
-            border: 1px solid transparent;
         }
 
         .nav-item i {
             font-size: 1.05rem;
             width: 20px;
             text-align: center;
-            transition: transform 0.25s;
+            transition: transform 0.2s;
+            color: #94a3b8;
         }
 
         .nav-item:hover {
-            background: rgba(56, 189, 248, 0.08);
-            color: #fff;
-            border-color: rgba(56, 189, 248, 0.2);
+            background: #f1f5f9;
+            color: var(--primary-blue);
         }
 
         .nav-item:hover i {
-            transform: scale(1.15);
-            color: var(--cyan-neon);
+            color: var(--primary-blue);
+            transform: translateX(2px);
         }
 
         .nav-item.active {
-            background: linear-gradient(90deg, rgba(0, 240, 255, 0.15) 0%, rgba(59, 130, 246, 0.1) 100%);
-            color: #fff;
-            border-color: rgba(0, 240, 255, 0.4);
-            box-shadow: 0 0 15px rgba(0, 240, 255, 0.15), inset 3px 0 0 var(--cyan-neon);
+            background: var(--primary-blue-gradient);
+            color: #ffffff;
             font-weight: 600;
+            box-shadow: var(--primary-blue-glow);
         }
 
         .nav-item.active i {
-            color: var(--cyan-neon);
-            text-shadow: 0 0 10px rgba(0, 240, 255, 0.8);
+            color: #ffffff;
         }
 
-        .promo-card {
+        /* Bottom Sidebar Status Card */
+        .system-status-card {
             margin-top: auto;
-            background: rgba(11, 17, 33, 0.85);
-            border: 1px solid var(--panel-border);
-            border-radius: 14px;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border: 1px solid #bfdbfe;
+            border-radius: 16px;
             padding: 1.2rem;
             position: relative;
             overflow: hidden;
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
-        .promo-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; height: 2px;
-            background: var(--gradient-cyber);
-            box-shadow: 0 0 10px var(--cyan-neon);
-        }
-
-        .promo-card h4 {
-            font-family: var(--font-display);
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: #fff;
+        .status-badge-header {
             display: flex;
             align-items: center;
             gap: 6px;
-        }
-
-        .promo-card p {
-            font-size: 0.78rem;
+            font-size: 0.72rem;
+            font-weight: 600;
             color: var(--text-muted);
-            margin-top: 4px;
+            margin-bottom: 4px;
         }
 
-        .radar-scan-badge {
-            display: inline-flex;
+        .status-dot-pulse {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
+            animation: beaconPulse 1.8s infinite;
+        }
+
+        @keyframes beaconPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+        }
+
+        .system-status-card h4 {
+            font-family: var(--font-display);
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #1e3a8a;
+        }
+
+        .shield-check-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: #ffffff;
+            display: flex;
             align-items: center;
-            gap: 6px;
-            padding: 3px 8px;
-            background: rgba(16, 185, 129, 0.15);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            border-radius: 6px;
-            font-family: var(--font-mono);
-            font-size: 0.68rem;
-            color: var(--emerald-neon);
-            margin-top: 8px;
+            justify-content: center;
+            color: var(--accent-green);
+            font-size: 1.2rem;
+            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.12);
         }
 
-        /* Main Content Container */
+        /* --- Main Content Shell --- */
         .main-content {
             flex: 1;
             display: flex;
             flex-direction: column;
             overflow-y: auto;
             position: relative;
+            background: var(--bg-canvas);
         }
 
-        /* Top Bar - SOC Command Deck */
+        /* --- Clean Top Header Bar --- */
         .top-bar {
-            height: 68px;
+            height: 64px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 0 2rem;
-            border-bottom: 1px solid var(--panel-border);
-            background: rgba(6, 9, 19, 0.88);
-            backdrop-filter: blur(16px);
+            background: #ffffff;
+            border-bottom: 1px solid var(--border-card);
             position: sticky;
             top: 0;
             z-index: 100;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
         }
 
-        .soc-telemetry-cluster {
+        .header-left {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 14px;
         }
 
-        .soc-clock-box {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 14px;
-            background: rgba(15, 23, 42, 0.8);
-            border: 1px solid rgba(56, 189, 248, 0.2);
-            border-radius: 20px;
-            font-family: var(--font-mono);
-            font-size: 0.82rem;
-            color: var(--cyan-neon);
-            box-shadow: inset 0 0 10px rgba(0, 240, 255, 0.08);
-        }
-
-        .soc-beacon-dot {
-            width: 8px; height: 8px;
-            border-radius: 50%;
-            background: var(--emerald-neon);
-            box-shadow: 0 0 8px var(--emerald-neon);
-            animation: beaconPulse 1.8s infinite;
-        }
-        @keyframes beaconPulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(0.8); }
-        }
-
-        .soc-defcon-pill {
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-family: var(--font-mono);
-            font-size: 0.72rem;
-            font-weight: 700;
-            letter-spacing: 0.05em;
-            background: rgba(16, 185, 129, 0.15);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            color: var(--emerald-neon);
-            transition: all 0.3s;
-        }
-
-        .soc-defcon-pill.threat-weapon {
-            background: rgba(255, 23, 68, 0.2);
-            border-color: var(--crimson-neon);
-            color: #ff809b;
-            box-shadow: var(--crimson-glow);
-            animation: pulseAlert 1.2s infinite;
-        }
-
-        .soc-defcon-pill.threat-intrusion {
-            background: rgba(245, 158, 11, 0.2);
-            border-color: var(--amber-neon);
-            color: #fde68a;
-            box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
-        }
-
-        .top-bar-icons {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .btn {
-            padding: 8px 16px;
-            border-radius: 10px;
-            border: 1px solid var(--panel-border);
-            background: rgba(15, 23, 42, 0.6);
-            color: var(--text-main);
-            font-weight: 500;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        .monitoring-pill {
             display: inline-flex;
             align-items: center;
-            justify-content: center;
             gap: 8px;
-            font-family: var(--font-body);
-            backdrop-filter: blur(8px);
-        }
-
-        .btn:hover {
-            background: rgba(56, 189, 248, 0.12);
-            border-color: var(--cyan-neon);
-            color: #fff;
-            box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
-            transform: translateY(-1px);
-        }
-
-        .btn-cyan {
-            background: linear-gradient(135deg, rgba(0, 240, 255, 0.25) 0%, rgba(59, 130, 246, 0.25) 100%);
-            border: 1px solid rgba(0, 240, 255, 0.5);
-            color: var(--cyan-neon);
-            box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
-            font-weight: 600;
-        }
-
-        .btn-cyan:hover {
-            background: linear-gradient(135deg, rgba(0, 240, 255, 0.4) 0%, rgba(59, 130, 246, 0.4) 100%);
-            box-shadow: 0 0 20px rgba(0, 240, 255, 0.45);
-        }
-
-        .btn-primary {
-            background: var(--gradient-cyber);
-            border: none;
-            color: #030712;
-            font-weight: 700;
-            box-shadow: 0 4px 15px rgba(0, 240, 255, 0.35);
-        }
-
-        .btn-primary:hover {
-            opacity: 0.95;
-            box-shadow: 0 6px 20px rgba(0, 240, 255, 0.55);
-            transform: translateY(-1px);
-        }
-
-        .btn-outline {
-            border: 1px solid var(--panel-border);
-            background: transparent;
-            color: var(--text-muted);
-        }
-
-        .btn-outline:hover {
-            border-color: var(--text-main);
-            color: var(--text-main);
-        }
-
-        .soc-audio-toggle {
-            padding: 8px 14px;
-            font-size: 0.8rem;
-            font-family: var(--font-mono);
+            padding: 5px 14px;
+            background: var(--accent-green-light);
+            border: 1px solid var(--accent-green-border);
             border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--accent-green-dark);
         }
 
-        .status-pill {
+        .header-separator {
+            color: #cbd5e1;
+            font-size: 0.9rem;
+        }
+
+        .header-clock {
             display: flex;
             align-items: center;
-            gap: 8px;
-            background: rgba(16, 185, 129, 0.12);
-            border: 1px solid rgba(16, 185, 129, 0.25);
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            color: var(--emerald-neon);
-            font-weight: 600;
-            font-family: var(--font-mono);
-        }
-
-        .dot {
-            width: 7px; height: 7px;
-            background: var(--emerald-neon);
-            border-radius: 50%;
-            box-shadow: 0 0 8px var(--emerald-neon);
-        }
-
-        .icon-btn {
-            width: 38px; height: 38px;
-            border-radius: 10px;
-            background: rgba(15, 23, 42, 0.7);
-            border: 1px solid var(--panel-border);
+            gap: 7px;
+            font-size: 0.82rem;
             color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .icon-badge-btn {
+            position: relative;
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: #f8fafc;
+            border: 1px solid var(--border-card);
+            color: var(--text-body);
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: all 0.25s;
+            transition: all 0.2s;
+            font-size: 0.95rem;
         }
 
-        .icon-btn:hover {
-            color: var(--cyan-neon);
-            border-color: var(--cyan-neon);
-            box-shadow: 0 0 10px rgba(0, 240, 255, 0.25);
+        .icon-badge-btn:hover {
+            background: #f1f5f9;
+            color: var(--primary-blue);
+            border-color: #cbd5e1;
         }
 
+        .red-dot-badge {
+            position: absolute;
+            top: -3px;
+            right: -3px;
+            width: 17px;
+            height: 17px;
+            border-radius: 50%;
+            background: var(--accent-red);
+            color: #ffffff;
+            font-size: 0.65rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #ffffff;
+        }
+
+        .user-chip {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 4px 12px 4px 6px;
+            border-radius: 24px;
+            background: #f8fafc;
+            border: 1px solid var(--border-card);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .user-chip:hover {
+            background: #f1f5f9;
+        }
+
+        .user-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: var(--primary-blue-gradient);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .user-chip span {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-heading);
+        }
+
+        .user-chip i.fa-chevron-down {
+            font-size: 0.68rem;
+            color: var(--text-muted);
+        }
+
+        /* --- Content Container --- */
         .content-area {
-            padding: 2rem 2.2rem;
+            padding: 1.5rem 2rem;
             display: flex;
             flex-direction: column;
-            gap: 1.8rem;
-            max-width: 1680px;
+            gap: 1.4rem;
+            max-width: 1720px;
             margin: 0 auto;
             width: 100%;
         }
 
-        /* --- Cyber SOC Stat Cards --- */
-        .stats-row {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 1.2rem;
-        }
-
-        @media (max-width: 1440px) {
-            .stats-row { grid-template-columns: repeat(3, 1fr); }
-        }
-        @media (max-width: 900px) {
-            .stats-row { grid-template-columns: repeat(2, 1fr); }
-        }
-        @media (max-width: 600px) {
-            .stats-row { grid-template-columns: 1fr; }
-        }
-
-        .stat-box {
-            background: var(--panel-glass);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--panel-border);
-            border-radius: 16px;
-            padding: 1.4rem;
-            display: flex;
-            align-items: center;
-            gap: 1.2rem;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
-        }
-
-        .stat-box::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; width: 3px; height: 100%;
-            background: var(--panel-border);
-            transition: background 0.3s;
-        }
-
-        .stat-box:hover {
-            transform: translateY(-3px);
-            border-color: var(--panel-border-hover);
-            box-shadow: 0 15px 35px -5px rgba(0,0,0,0.6), 0 0 25px rgba(0, 240, 255, 0.15);
-        }
-
-        .stat-box:hover::before {
-            background: var(--cyan-neon);
-            box-shadow: 0 0 10px var(--cyan-neon);
-        }
-
-        .stat-icon {
-            width: 52px; height: 52px;
-            border-radius: 12px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.4rem;
-            flex-shrink: 0;
-            position: relative;
-        }
-        .icon-purple { background: rgba(168, 85, 247, 0.12); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.25); }
-        .icon-green  { background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.25); }
-        .icon-blue   { background: rgba(0, 240, 255, 0.12); color: #38bdf8; border: 1px solid rgba(0, 240, 255, 0.25); }
-        .icon-red    { background: rgba(255, 23, 68, 0.15); color: #ff809b; border: 1px solid rgba(255, 23, 68, 0.3); }
-        .icon-orange { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
-
-        .stat-info h3 {
-            font-family: var(--font-body);
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            font-weight: 600;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-        }
-
-        .stat-info .value {
-            font-family: var(--font-display);
-            font-size: 1.75rem;
-            font-weight: 700;
-            display: flex; align-items: center; gap: 8px;
-            color: #fff;
-            letter-spacing: -0.02em;
-        }
-
-        .stat-info .sub-text {
-            font-size: 0.76rem;
-            color: var(--text-dim);
-            margin-top: 3px;
-            font-family: var(--font-mono);
-        }
-
-        .status-dot {
-            width: 8px; height: 8px; border-radius: 50%; display: inline-block;
-        }
-        .status-dot.online { background: var(--emerald-neon); box-shadow: 0 0 10px var(--emerald-neon);}
-        .status-dot.offline { background: #ef4444; box-shadow: 0 0 10px #ef4444;}
-
-        /* Security Alert Banner */
-        .alert-banner {
-            background: linear-gradient(90deg, rgba(220, 38, 38, 0.95), rgba(185, 28, 28, 0.9));
-            color: #fff;
-            padding: 1rem 1.5rem;
-            border-radius: 14px;
-            box-shadow: 0 0 30px rgba(239, 68, 68, 0.5), inset 0 0 10px rgba(255,255,255,0.2);
-            border: 1px solid rgba(254, 202, 202, 0.4);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            animation: pulseAlert 1.5s infinite;
-        }
-
-        @keyframes pulseAlert {
-            0%, 100% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); transform: scale(1); }
-            50% { box-shadow: 0 0 35px rgba(239, 68, 68, 0.85); transform: scale(1.003); }
-        }
-
-        .alert-banner-content {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            font-size: 0.92rem;
-        }
-
-        .alert-banner-content i {
-            font-size: 1.5rem;
-            color: #fef08a;
-        }
-
-        .alert-badge-live {
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.4);
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-family: var(--font-mono);
-            font-size: 0.72rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-        }
-
-        /* Generic Panels */
+        /* --- Modern White Panels / Cards --- */
         .panel {
-            background: var(--panel-glass);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--panel-border);
-            border-radius: 16px;
-            padding: 1.5rem;
-            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+            background: var(--bg-card);
+            border: 1px solid var(--border-card);
+            border-radius: 18px;
+            padding: 1.4rem;
+            box-shadow: var(--shadow-card);
+            transition: box-shadow 0.25s, transform 0.25s;
         }
 
         .panel-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1.2rem;
-        }
-        
-        .panel-header h3 {
-            font-family: var(--font-display);
-            font-size: 1.1rem;
-            font-weight: 600;
-            display: flex; align-items: center; gap: 10px;
-            color: #fff;
+            margin-bottom: 1rem;
         }
 
-        /* ========================================================== */
-        /* --- CYBER RETICLE & MULTI-CAMERA TILES ---                 */
-        /* ========================================================== */
+        .panel-header h3, .panel-header h4 {
+            font-family: var(--font-display);
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text-heading);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .view-all-link {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--primary-blue);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: gap 0.2s;
+        }
+
+        .view-all-link:hover {
+            gap: 7px;
+            text-decoration: underline;
+        }
+
+        /* --- Button System --- */
+        .btn {
+            padding: 8px 16px;
+            border-radius: 10px;
+            border: 1px solid var(--border-card);
+            background: #ffffff;
+            color: var(--text-body);
+            font-weight: 600;
+            font-size: 0.84rem;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-family: var(--font-body);
+        }
+
+        .btn:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-primary {
+            background: var(--primary-blue-gradient);
+            border: 1px solid var(--primary-blue);
+            color: #ffffff;
+            box-shadow: var(--primary-blue-glow);
+        }
+
+        .btn-primary:hover {
+            opacity: 0.95;
+            color: #ffffff;
+            box-shadow: 0 8px 20px rgba(29, 111, 242, 0.45);
+        }
+
+        .btn-cyan {
+            background: var(--primary-blue-light);
+            border: 1px solid var(--primary-blue-border);
+            color: var(--primary-blue);
+            font-weight: 600;
+        }
+
+        .btn-cyan:hover {
+            background: #dbeafe;
+            color: var(--primary-blue);
+        }
+
+        .btn-outline {
+            border: 1px solid var(--border-card);
+            background: #ffffff;
+            color: var(--text-muted);
+        }
+
+        .btn-outline:hover {
+            border-color: var(--text-body);
+            color: var(--text-body);
+            background: #f8fafc;
+        }
+
+        /* Form Controls */
+        .form-group {
+            margin-bottom: 1.1rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-heading);
+            margin-bottom: 6px;
+            letter-spacing: 0.02em;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 9px 14px;
+            background: #ffffff;
+            border: 1px solid var(--border-card);
+            border-radius: 10px;
+            color: var(--text-heading);
+            font-size: 0.88rem;
+            outline: none;
+            transition: all 0.2s;
+            font-family: var(--font-body);
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(29, 111, 242, 0.15);
+        }
+
+        /* --- Camera Grid & Stream Tiles --- */
         .cam-grid-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.1rem;
             transition: all 0.3s ease;
         }
-        .cam-grid-container.layout-2x2 {
-            grid-template-columns: repeat(2, 1fr);
-        }
+
         .cam-grid-container.layout-1plus3 {
             grid-template-columns: 2fr 1fr;
         }
-        @media (max-width: 992px) {
-            .cam-grid-container, .cam-grid-container.layout-2x2, .cam-grid-container.layout-1plus3 {
+
+        @media (max-width: 900px) {
+            .cam-grid-container, .cam-grid-container.layout-1plus3 {
                 grid-template-columns: 1fr;
             }
         }
 
         .cam-tile {
-            background: rgba(10, 15, 28, 0.85);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--panel-border);
-            border-radius: 16px;
+            background: #000000;
+            border-radius: 14px;
             overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
             position: relative;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            aspect-ratio: 16/9;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+            border: 2px solid transparent;
+            transition: border-color 0.2s, transform 0.2s;
         }
 
         .cam-tile:hover {
+            border-color: var(--primary-blue);
             transform: translateY(-2px);
-            border-color: rgba(0, 240, 255, 0.4);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.6), 0 0 25px rgba(0, 240, 255, 0.15);
         }
 
         .cam-tile.threat-breach {
-            border-color: var(--crimson-neon);
-            box-shadow: 0 0 25px rgba(255, 23, 68, 0.35);
+            border-color: var(--accent-red);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+            animation: pulseTileAlert 1.5s infinite;
         }
 
-        .cam-tile-header {
-            padding: 12px 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: rgba(15, 23, 42, 0.5);
-            border-bottom: 1px solid var(--panel-border);
+        @keyframes pulseTileAlert {
+            0%, 100% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.3); }
+            50% { box-shadow: 0 0 25px rgba(239, 68, 68, 0.65); }
         }
 
-        .cam-tile-title {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .cam-tile-title h4 {
-            font-family: var(--font-display);
-            font-size: 0.98rem;
-            font-weight: 600;
-            color: #fff;
-        }
-
-        .cam-tile-title span {
-            font-family: var(--font-mono);
-            font-size: 0.72rem;
-            color: var(--text-dim);
-        }
-
-        .cam-tile-feed {
-            width: 100%;
-            aspect-ratio: 16/9;
-            background: #020408;
-            position: relative;
-            overflow: hidden;
-        }
-
-        /* Tactical HUD Corner Reticles */
-        .cam-tile-feed::before, .cam-tile-feed::after {
-            content: '';
-            position: absolute;
-            width: 14px;
-            height: 14px;
-            border: 2px solid rgba(0, 240, 255, 0.55);
-            pointer-events: none;
-            z-index: 6;
-            transition: all 0.2s;
-        }
-        .cam-tile-feed::before {
-            top: 8px; left: 8px;
-            border-right: none; border-bottom: none;
-        }
-        .cam-tile-feed::after {
-            bottom: 8px; right: 8px;
-            border-left: none; border-top: none;
-        }
-
-        .cam-tile:hover .cam-tile-feed::before,
-        .cam-tile:hover .cam-tile-feed::after {
-            border-color: var(--cyan-neon);
-            box-shadow: 0 0 10px var(--cyan-neon);
-        }
-
-        .cam-tile-feed img {
+        .cam-tile img {
             width: 100%;
             height: 100%;
             object-fit: cover;
             display: block;
         }
 
-        /* Subtle Scanline Overlay */
-        .cam-scanline {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.22) 50%);
-            background-size: 100% 4px;
-            pointer-events: none;
-            z-index: 4;
-            opacity: 0.5;
-        }
-
-        /* Telemetry HUD overlays */
-        .cam-tile-hud {
+        /* Top-Left Overlay Badge: Camera Name */
+        .cam-overlay-name {
             position: absolute;
             top: 10px;
             left: 10px;
+            background: rgba(15, 23, 42, 0.78);
+            backdrop-filter: blur(8px);
+            color: #ffffff;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
             display: flex;
+            align-items: center;
             gap: 6px;
             z-index: 10;
         }
 
-        .hud-chip {
-            background: rgba(8, 14, 28, 0.85);
-            backdrop-filter: blur(10px);
-            padding: 4px 10px;
-            border-radius: 8px;
-            font-family: var(--font-mono);
-            font-size: 0.72rem;
-            font-weight: 600;
-            color: #fff;
-            border: 1px solid rgba(56, 189, 248, 0.25);
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-        }
-
-        .hud-chip.active-threat {
-            border-color: var(--crimson-neon);
-            color: #ff809b;
-            background: rgba(220, 38, 38, 0.7);
-            animation: pulseAlert 1.2s infinite;
-        }
-
-        .live-rec-pill {
-            background: rgba(10, 15, 26, 0.88);
+        /* Top-Right Expand Button */
+        .cam-overlay-expand {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(15, 23, 42, 0.78);
             backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 23, 68, 0.4);
-            color: #fca5a5;
-            padding: 3px 8px;
-            border-radius: 6px;
-            font-family: var(--font-mono);
-            font-size: 0.7rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .live-rec-dot {
-            width: 7px; height: 7px;
-            border-radius: 50%;
-            background: var(--crimson-neon);
-            box-shadow: 0 0 8px var(--crimson-neon);
-            animation: beaconPulse 1.2s infinite;
-        }
-
-        .cam-tile-footer {
-            padding: 10px 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-top: 1px solid var(--panel-border);
-            background: rgba(8, 12, 22, 0.6);
-            font-size: 0.8rem;
-        }
-
-        /* --- Fullscreen Cinematic Theater Mode --- */
-        .theater-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(2, 4, 10, 0.95);
-            backdrop-filter: blur(20px);
-            z-index: 10000;
-            flex-direction: column;
-            padding: 1.5rem;
-            animation: modalSlideIn 0.25s ease-out;
-        }
-
-        .theater-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 1rem;
-        }
-
-        .theater-feed-container {
-            flex: 1;
-            position: relative;
-            background: #000;
-            border-radius: 16px;
-            border: 1px solid var(--panel-border);
-            overflow: hidden;
+            color: #ffffff;
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 0.8rem;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            z-index: 10;
         }
 
-        .theater-feed-container img {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
+        .cam-overlay-expand:hover {
+            background: var(--primary-blue);
+            color: #ffffff;
         }
 
-        /* --- High-End Modal Dialog --- */
+        /* Bottom-Left Overlay Badge: Status (Online / Intrusion) */
+        .cam-overlay-status {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            padding: 3px 10px;
+            border-radius: 14px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            z-index: 10;
+        }
+
+        .cam-overlay-status.status-online {
+            background: #10b981;
+            color: #ffffff;
+        }
+
+        .cam-overlay-status.status-alert {
+            background: #ef4444;
+            color: #ffffff;
+            animation: pulseAlert 1.2s infinite;
+        }
+
+        .cam-overlay-status.status-warning {
+            background: #f59e0b;
+            color: #ffffff;
+        }
+
+        .cam-overlay-status.status-offline {
+            background: #64748b;
+            color: #ffffff;
+        }
+
+        @keyframes pulseAlert {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.85; transform: scale(1.04); }
+        }
+
+        /* --- Modals --- */
         .modal-backdrop {
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(3, 6, 15, 0.85);
-            backdrop-filter: blur(16px);
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(8px);
             z-index: 9999;
             align-items: center;
             justify-content: center;
             padding: 1.5rem;
         }
+
         .modal-window {
-            background: rgba(10, 16, 32, 0.95);
-            border: 1px solid rgba(56, 189, 248, 0.3);
+            background: #ffffff;
+            border: 1px solid var(--border-card);
             border-radius: 20px;
             width: 100%;
-            max-width: 680px;
+            max-width: 660px;
             max-height: 90vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 50px rgba(0, 240, 255, 0.2);
+            box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
             animation: modalSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         }
+
         @keyframes modalSlideIn {
             from { opacity: 0; transform: scale(0.96) translateY(10px); }
             to { opacity: 1; transform: scale(1) translateY(0); }
         }
+
         .modal-header {
             padding: 1.25rem 1.5rem;
-            border-bottom: 1px solid var(--panel-border);
+            border-bottom: 1px solid var(--border-card);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: rgba(15, 23, 42, 0.6);
+            background: #f8fafc;
         }
+
         .modal-header h3 {
             font-family: var(--font-display);
-            font-size: 1.2rem;
+            font-size: 1.15rem;
             font-weight: 700;
+            color: var(--text-heading);
             display: flex;
             align-items: center;
             gap: 10px;
-            color: #fff;
         }
+
         .modal-close-btn {
             background: transparent;
             border: none;
@@ -895,22 +730,25 @@
             justify-content: center;
             transition: all 0.2s;
         }
+
         .modal-close-btn:hover {
-            color: #fff;
-            background: rgba(255,255,255,0.1);
+            color: var(--text-heading);
+            background: #e2e8f0;
         }
+
         .modal-tabs {
             display: flex;
-            border-bottom: 1px solid var(--panel-border);
-            background: rgba(0,0,0,0.3);
+            border-bottom: 1px solid var(--border-card);
+            background: #ffffff;
         }
+
         .modal-tab-btn {
             flex: 1;
             padding: 12px;
             background: transparent;
             border: none;
             color: var(--text-muted);
-            font-size: 0.9rem;
+            font-size: 0.88rem;
             font-weight: 600;
             cursor: pointer;
             border-bottom: 2px solid transparent;
@@ -921,100 +759,80 @@
             gap: 8px;
             font-family: var(--font-body);
         }
+
         .modal-tab-btn.active {
-            color: var(--cyan-neon);
-            border-bottom-color: var(--cyan-neon);
-            background: rgba(0, 240, 255, 0.08);
+            color: var(--primary-blue);
+            border-bottom-color: var(--primary-blue);
+            background: #eff6ff;
         }
+
         .modal-body {
             padding: 1.5rem;
             overflow-y: auto;
             flex: 1;
         }
-        .form-group {
-            margin-bottom: 1.2rem;
-        }
-        .form-label {
-            display: block;
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: #cbd5e1;
-            margin-bottom: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-        .form-control {
-            width: 100%;
-            padding: 10px 14px;
-            background: rgba(6, 11, 24, 0.85);
-            border: 1px solid var(--panel-border);
-            border-radius: 10px;
-            color: #fff;
-            font-size: 0.9rem;
-            outline: none;
-            transition: all 0.2s;
-            font-family: var(--font-body);
-        }
-        .form-control:focus {
-            border-color: var(--cyan-neon);
-            box-shadow: 0 0 15px rgba(0, 240, 255, 0.25);
-        }
+
         .preset-badge {
             padding: 6px 12px;
             border-radius: 8px;
-            font-size: 0.75rem;
+            font-size: 0.76rem;
             font-weight: 600;
-            background: rgba(15, 23, 42, 0.8);
-            border: 1px solid var(--panel-border);
-            color: #94a3b8;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            color: var(--text-body);
             cursor: pointer;
             display: inline-flex;
             align-items: center;
             gap: 6px;
             transition: all 0.2s;
         }
-        .preset-badge:hover, .preset-badge.selected {
-            background: rgba(0, 240, 255, 0.15);
-            border-color: var(--cyan-neon);
-            color: var(--cyan-neon);
-            box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+
+        .preset-badge:hover {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+            color: var(--primary-blue);
         }
 
-        .view-mode-tabs {
-            display: flex;
-            gap: 6px;
-            align-items: center;
-            background: rgba(8, 14, 28, 0.8);
-            padding: 4px;
-            border-radius: 12px;
-            border: 1px solid var(--panel-border);
+        /* Fullscreen Cinematic Theater Mode */
+        .theater-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(20px);
+            z-index: 10000;
+            flex-direction: column;
+            padding: 1.5rem;
         }
-        .view-mode-btn {
-            padding: 6px 14px;
-            border-radius: 8px;
-            border: none;
-            background: transparent;
-            color: var(--text-muted);
-            font-size: 0.8rem;
-            font-weight: 600;
-            cursor: pointer;
+
+        .theater-header {
             display: flex;
             align-items: center;
-            gap: 6px;
-            transition: all 0.2s;
-            font-family: var(--font-body);
+            justify-content: space-between;
+            margin-bottom: 1rem;
         }
-        .view-mode-btn.active {
-            background: linear-gradient(135deg, rgba(0, 240, 255, 0.25) 0%, rgba(59, 130, 246, 0.3) 100%);
-            border: 1px solid rgba(0, 240, 255, 0.4);
-            color: #fff;
-            box-shadow: 0 2px 10px rgba(0, 240, 255, 0.2);
+
+        .theater-feed-container {
+            flex: 1;
+            position: relative;
+            background: #000;
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .theater-feed-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
         }
 
         @media (max-width: 768px) {
             .hide-mobile { display: none !important; }
             .sidebar { width: 70px; padding: 1rem 0.5rem; }
-            .logo-text, .promo-card, .nav-item span { display: none; }
+            .logo-text, .system-status-card, .nav-item span { display: none; }
             .top-bar { padding: 0 1rem; }
         }
     </style>
@@ -1022,351 +840,104 @@
 <body>
     {% csrf_token %}
     
-    <!-- Cyber Sidebar -->
+    <!-- Smart CCTV Sidebar Navigation -->
     <aside class="sidebar">
-        <div class="logo-area">
-            <div class="logo-icon"><i class="fa-solid fa-shield-halved"></i></div>
-            <div class="logo-text">
-                <h2>Aegis SOC</h2>
-                <span>Tactical Defense</span>
+        <!-- Logo Brand -->
+        <a href="{% url 'dashboard' %}" class="logo-area">
+            <div class="logo-badge">
+                <i class="fa-solid fa-shield-halved"></i>
             </div>
-        </div>
+            <div class="logo-text">
+                <h2>Smart CCTV</h2>
+                <span>Surveillance System</span>
+            </div>
+        </a>
 
+        <!-- Main Nav Menu -->
         <ul class="nav-menu">
             <a href="{% url 'dashboard' %}" class="nav-item {% if request.path == '/' %}active{% endif %}">
-                <i class="fa-solid fa-table-cells"></i> <span>Dashboard</span>
+                <i class="fa-solid fa-house"></i> <span>Dashboard</span>
             </a>
-            <a href="javascript:void(0)" onclick="openCameraModal()" class="nav-item">
-                <i class="fa-solid fa-camera"></i> <span>Cameras</span>
+            <a href="{% url 'dashboard' %}#camera-grid" class="nav-item">
+                <i class="fa-solid fa-video"></i> <span>Live Cameras</span>
             </a>
-            <a href="{% url 'upload_dashboard' %}" class="nav-item {% if request.path == '/upload-dashboard' %}active{% endif %}">
-                <i class="fa-solid fa-cloud-arrow-up"></i> <span>Media Upload</span>
+            <a href="{% url 'analytics_dashboard' %}" class="nav-item">
+                <i class="fa-solid fa-triangle-exclamation"></i> <span>Threat Detection</span>
             </a>
             <a href="{% url 'logs_dashboard' %}" class="nav-item {% if request.path == '/logs-dashboard' %}active{% endif %}">
-                <i class="fa-solid fa-clipboard-list"></i> <span>Audit Logs</span>
+                <i class="fa-solid fa-clipboard-list"></i> <span>Incident Logs</span>
             </a>
             <a href="{% url 'analytics_dashboard' %}" class="nav-item {% if request.path == '/analytics-dashboard' %}active{% endif %}">
                 <i class="fa-solid fa-chart-line"></i> <span>Analytics</span>
             </a>
-            <a href="{% url 'logout' %}" class="nav-item" style="margin-top: 10px; color: #f87171;">
-                <i class="fa-solid fa-right-from-bracket"></i> <span>Logout</span>
+            <a href="javascript:void(0)" onclick="openCameraModal('list')" class="nav-item">
+                <i class="fa-solid fa-sliders"></i> <span>Camera Management</span>
+            </a>
+            <a href="{% url 'upload_dashboard' %}" class="nav-item {% if request.path == '/upload-dashboard' %}active{% endif %}">
+                <i class="fa-solid fa-cloud-arrow-up"></i> <span>Media Upload</span>
+            </a>
+            <a href="{% url 'logout' %}" class="nav-item" style="margin-top: 10px; color: #ef4444;">
+                <i class="fa-solid fa-right-from-bracket" style="color: #ef4444;"></i> <span>Logout</span>
             </a>
         </ul>
 
-        <div class="promo-card">
-            <h4><i class="fa-solid fa-brain" style="color: var(--cyan-neon);"></i> Edge AI Core</h4>
-            <p>Fair Round-Robin CPU Inference</p>
-            <div class="radar-scan-badge">
-                <span class="soc-beacon-dot"></span> LIVE SURVEILLANCE
+        <!-- Bottom System Status Card -->
+        <div class="system-status-card">
+            <div>
+                <div class="status-badge-header">
+                    <span class="status-dot-pulse"></span> SYSTEM STATUS
+                </div>
+                <h4>All Systems Online</h4>
+            </div>
+            <div class="shield-check-icon">
+                <i class="fa-solid fa-shield-halved" style="color: var(--accent-green);"></i>
             </div>
         </div>
     </aside>
 
     <!-- Main Content Area -->
     <main class="main-content">
-        <!-- Top SOC Command Bar -->
+        <!-- Top Bar -->
         <header class="top-bar">
-            <!-- Left: Telemetry & DEFCON Cluster -->
-            <div class="soc-telemetry-cluster">
-                <div class="soc-clock-box">
-                    <span class="soc-beacon-dot"></span>
-                    <span id="soc-utc-clock">--:--:-- UTC</span>
+            <!-- Left: Real-Time Monitoring & UTC Clock -->
+            <div class="header-left">
+                <div class="monitoring-pill">
+                    <span class="status-dot-pulse"></span> Real-Time Monitoring
                 </div>
-                <div class="soc-defcon-pill hide-mobile" id="top-defcon-badge">
-                    DEFCON 5 &bull; ALL CLEAR
+                <span class="header-separator hide-mobile">|</span>
+                <div class="header-clock hide-mobile">
+                    <i class="fa-regular fa-clock" style="color: var(--text-muted);"></i>
+                    <span id="soc-utc-clock">Oct 31, 2026 10:08:47 AM (UTC)</span>
                 </div>
-                <!-- Audio Siren Alert Toggle Button -->
-                <button type="button" class="btn soc-audio-toggle" id="audio-alarm-toggle" onclick="toggleAudioAlerts()" title="Toggle Browser Audio Alerts on Threat">
-                    <i class="fa-solid fa-volume-high" style="color: var(--cyan-neon);"></i>
-                    <span class="hide-mobile">Audio: ON</span>
-                </button>
             </div>
 
-            <!-- Right: Quick Actions -->
-            <div class="top-bar-icons">
-                <button type="button" class="btn btn-cyan" onclick="openCameraModal('add')">
-                    <i class="fa-solid fa-plus"></i> <span class="hide-mobile">Add Phone / Cam</span>
+            <!-- Right: Audio Siren, Notifications & Profile -->
+            <div class="header-right">
+                <!-- Audio Alert Siren Toggle -->
+                <button type="button" class="btn btn-outline" id="audio-alarm-toggle" onclick="toggleAudioAlerts()" title="Toggle Browser Audio Alerts on Threat" style="padding: 6px 12px; font-size: 0.78rem;">
+                    <i class="fa-solid fa-volume-high" style="color: var(--primary-blue);"></i>
+                    <span class="hide-mobile">Audio: ON</span>
                 </button>
-                <button type="button" class="btn" onclick="openCameraModal('list')">
-                    <i class="fa-solid fa-sliders"></i> <span class="hide-mobile">Camera Grid</span>
-                </button>
-                <div class="status-pill hide-mobile" id="top-system-pill">
-                    <div class="dot" id="top-system-dot"></div> <span id="top-system-text">Grid Online</span>
+
+                <!-- Notification Bell with Count 3 -->
+                <div class="icon-badge-btn" onclick="window.location.href='{% url 'logs_dashboard' %}'" title="3 Recent Unacknowledged Alerts">
+                    <i class="fa-regular fa-bell"></i>
+                    <span class="red-dot-badge">3</span>
                 </div>
-                <div class="icon-btn" title="SOC Operator: Admin"><i class="fa-solid fa-user-shield"></i></div>
+
+                <!-- Admin User Profile Chip -->
+                <div class="user-chip" title="Operator Profile: Admin">
+                    <div class="user-avatar">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                    <span>Admin</span>
+                    <i class="fa-solid fa-chevron-down"></i>
+                </div>
             </div>
         </header>
 
-
         <div class="content-area">
             {% block main_content %}
-            <!-- Intrusion Alert Banner -->
-            <div id="intrusion-banner" class="alert-banner" style="display: none;">
-                <div class="alert-banner-content">
-                    <i class="fa-solid fa-triangle-exclamation fa-beat-fade"></i>
-                    <div>
-                        <strong>SECURITY BREACH DETECTED:</strong>
-                        <span>Unauthorized individual inside Restricted Zone! Capturing evidence.</span>
-                    </div>
-                </div>
-                <div class="alert-badge-live">BREACH ACTIVE</div>
-            </div>
-
-            <!-- Top Stats -->
-            <div class="stats-row">
-                <div class="stat-box">
-                    <div class="stat-icon icon-purple"><i class="fa-solid fa-video"></i></div>
-                    <div class="stat-info">
-                        <h3>Camera Status</h3>
-                        <div class="value">
-                            <span class="status-dot online" id="cam-dot"></span> 
-                            <span id="stat-cam">Checking...</span>
-                        </div>
-                        <div class="sub-text" id="stat-cam-sub">Source active</div>
-                    </div>
-                </div>
-                
-                <div class="stat-box">
-                    <div class="stat-icon icon-green"><i class="fa-solid fa-user"></i></div>
-                    <div class="stat-info">
-                        <h3>People Detected</h3>
-                        <div class="value" id="stat-people">0</div>
-                        <div class="sub-text">In current frame</div>
-                    </div>
-                </div>
-
-                <div class="stat-box" id="intruder-stat-box">
-                    <div class="stat-icon icon-red"><i class="fa-solid fa-triangle-exclamation"></i></div>
-                    <div class="stat-info">
-                        <h3>Zone Intrusions</h3>
-                        <div class="value" id="stat-intruders" style="color: #ef4444;">0</div>
-                        <div class="sub-text" id="stat-intruders-sub">Secured perimeter</div>
-                    </div>
-                </div>
-
-                <div class="stat-box" id="weapon-stat-box">
-                    <div class="stat-icon icon-orange"><i class="fa-solid fa-gun"></i></div>
-                    <div class="stat-info">
-                        <h3>Weapons Found</h3>
-                        <div class="value" id="stat-weapons" style="color: #f97316;">0</div>
-                        <div class="sub-text" id="stat-weapons-sub">No threats detected</div>
-                    </div>
-                </div>
-
-                <div class="stat-box">
-                    <div class="stat-icon icon-blue"><i class="fa-solid fa-shield-halved"></i></div>
-                    <div class="stat-info">
-                        <h3>System Status</h3>
-                        <div class="value" id="stat-sys" style="font-size: 1.15rem;">Monitoring</div>
-                        <div class="sub-text">AI Engine running</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Main Layout -->
-            <div class="main-grid">
-                <!-- Left: Video Feed -->
-                <div class="panel">
-                    <div class="panel-header">
-                        <h3><i class="fa-solid fa-video"></i> Live Surveillance Feed</h3>
-                        <div class="status-pill" style="padding: 4px 10px; font-size: 0.75rem;" id="feed-badge">
-                            <div class="dot"></div> LIVE
-                        </div>
-                    </div>
-                    <div class="video-feed-wrapper" id="feed-wrapper" style="position: relative;">
-                        <img src="{% url 'video_feed' %}" alt="Live Feed" id="video-stream">
-                        <canvas id="zone-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></canvas>
-                        <div id="draw-prompt" style="display: none; position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(8px); color: #fff; padding: 6px 18px; border-radius: 20px; font-size: 0.8rem; z-index: 20; border: 1px solid rgba(239, 68, 68, 0.7); box-shadow: 0 4px 20px rgba(0,0,0,0.6); pointer-events: none;">
-                            <i class="fa-solid fa-crosshairs" style="color: #ef4444; margin-right: 6px;"></i> Click & drag on video to set boundary
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Right: Controls & Details -->
-                <div class="right-column" style="display: flex; flex-direction: column; gap: 1.5rem;">
-                    {% block right_panel %}{% endblock %}
-
-                    <!-- Restricted Zone Configuration -->
-                    <div class="panel">
-                        <div class="panel-header" style="margin-bottom: 0.8rem;">
-                            <h3><i class="fa-solid fa-draw-polygon"></i> Restricted Zone</h3>
-                            <span class="status-pill" id="zone-active-pill" style="padding: 2px 8px; font-size: 0.7rem; background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3);">
-                                Loading...
-                            </span>
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                            <button type="button" class="btn zone-btn" data-zone="right" onclick="setZone('right')">
-                                <i class="fa-solid fa-arrow-right"></i> Right Sector
-                            </button>
-                            <button type="button" class="btn zone-btn" data-zone="left" onclick="setZone('left')">
-                                <i class="fa-solid fa-arrow-left"></i> Left Sector
-                            </button>
-                            <button type="button" class="btn zone-btn" data-zone="center" onclick="setZone('center')">
-                                <i class="fa-solid fa-crosshairs"></i> Center Box
-                            </button>
-                            <button type="button" class="btn zone-btn" data-zone="corridor" onclick="setZone('corridor')">
-                                <i class="fa-solid fa-road"></i> Corridor
-                            </button>
-                        </div>
-
-                        <!-- Custom Extent & Interactive Draw Controls -->
-                        <div style="margin-top: 10px; display: flex; gap: 8px;">
-                            <button type="button" class="btn zone-btn" id="btn-draw-zone" onclick="toggleDrawMode()" style="flex: 1; border-color: rgba(59, 130, 246, 0.4); color: #93c5fd; background: rgba(59, 130, 246, 0.1);">
-                                <i class="fa-solid fa-pen-ruler"></i> Draw on Video
-                            </button>
-                            <button type="button" class="btn zone-btn" id="btn-toggle-sliders" onclick="toggleSliders()" style="padding: 8px 14px;" title="Fine-tune boundary extent">
-                                <i class="fa-solid fa-sliders"></i>
-                            </button>
-                        </div>
-
-                        <!-- Fine-Tune Sliders (Collapsible) -->
-                        <div id="sliders-panel" style="display: none; margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 12px; border: 1px solid var(--panel-border);">
-                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px; display: flex; justify-content: space-between;">
-                                <span>Adjust Extent (Pixels):</span>
-                                <span id="extent-display" style="color: #60a5fa; font-weight: 600;">320, 0, 640, 480</span>
-                            </div>
-                            <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.75rem;">
-                                <div>
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                                        <span>Left (X1):</span><span id="val-x1">320</span>
-                                    </div>
-                                    <input type="range" id="slider-x1" min="0" max="640" value="320" style="width: 100%; cursor: pointer;" oninput="onSliderChange()">
-                                </div>
-                                <div>
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                                        <span>Right (X2):</span><span id="val-x2">640</span>
-                                    </div>
-                                    <input type="range" id="slider-x2" min="0" max="640" value="640" style="width: 100%; cursor: pointer;" oninput="onSliderChange()">
-                                </div>
-                                <div>
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                                        <span>Top (Y1):</span><span id="val-y1">0</span>
-                                    </div>
-                                    <input type="range" id="slider-y1" min="0" max="480" value="0" style="width: 100%; cursor: pointer;" oninput="onSliderChange()">
-                                </div>
-                                <div>
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                                        <span>Bottom (Y2):</span><span id="val-y2">480</span>
-                                    </div>
-                                    <input type="range" id="slider-y2" min="0" max="480" value="480" style="width: 100%; cursor: pointer;" oninput="onSliderChange()">
-                                </div>
-                            </div>
-                            <button type="button" class="btn btn-primary" onclick="saveCustomSliders()" style="margin-top: 10px; width: 100%; padding: 8px; font-size: 0.8rem;">
-                                <i class="fa-solid fa-floppy-disk"></i> Save Extent
-                            </button>
-                        </div>
-
-                        <button type="button" class="btn zone-btn" data-zone="off" onclick="setZone('off')" style="margin-top: 8px; width: 100%;">
-                            <i class="fa-solid fa-ban"></i> Disable Zone
-                        </button>
-                        <div id="save-toast" style="display: none; margin-top: 8px; font-size: 0.75rem; color: #10b981; text-align: center;">
-                            <i class="fa-solid fa-circle-check"></i> Boundary saved successfully!
-                        </div>
-                    </div>
-
-                    <div class="panel">
-                        <div class="panel-header" style="margin-bottom: 5px;">
-                            <h3><i class="fa-solid fa-server"></i> System Specs</h3>
-                        </div>
-                        <div class="info-row">
-                            <span class="label">Model:</span>
-                            <span>YOLO11 Nano</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="label">Engine:</span>
-                            <span>Ultralytics + OpenCV</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="label">Compute:</span>
-                            <span>CPU Optimized</span>
-                        </div>
-                    </div>
-
-                    <div class="panel">
-                        <div class="panel-header" style="margin-bottom: 10px;">
-                            <h3><i class="fa-solid fa-bolt"></i> Quick Features</h3>
-                        </div>
-                        <div class="feature-grid">
-                            <div class="feature-box">
-                                <i class="fa-solid fa-expand" style="color:#8b5cf6;"></i>
-                                Real-time<br>Detection
-                            </div>
-                            <div class="feature-box">
-                                <i class="fa-solid fa-crosshairs" style="color:#10b981;"></i>
-                                Person<br>Tracking
-                            </div>
-                            <div class="feature-box">
-                                <i class="fa-solid fa-bell" style="color:#3b82f6;"></i>
-                                Instant<br>Alerts
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Security Incident Analytics & Trend Charts -->
-            <div class="analytics-section" style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(59, 130, 246, 0.15); display: flex; align-items: center; justify-content: center; color: #3b82f6;">
-                            <i class="fa-solid fa-chart-line"></i>
-                        </div>
-                        <div>
-                            <h3 style="font-size: 1.1rem; font-weight: 600;">Incident Analytics & Historical Trends</h3>
-                            <span style="font-size: 0.75rem; color: var(--text-muted);">Real-time telemetry and aggregated audit analytics</span>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <span id="analytics-total-badge" style="font-size: 0.8rem; background: rgba(139, 92, 246, 0.15); color: #a78bfa; padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(139, 92, 246, 0.3);">
-                            <i class="fa-solid fa-database"></i> Total Logged: <strong id="analytics-total-count">0</strong>
-                        </span>
-                        <button type="button" class="btn" onclick="fetchAnalytics()" style="padding: 6px 14px; font-size: 0.75rem;">
-                            <i class="fa-solid fa-rotate"></i> Refresh
-                        </button>
-                    </div>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 1.2rem;">
-                    <!-- 7-Day Frequency Trend -->
-                    <div class="panel" style="display: flex; flex-direction: column; min-height: 280px;">
-                        <div class="panel-header" style="margin-bottom: 0.8rem;">
-                            <h4 style="font-size: 0.9rem; font-weight: 600; color: var(--text-muted);">
-                                <i class="fa-solid fa-wave-square" style="color: #3b82f6; margin-right: 6px;"></i> 7-Day Incident Frequency
-                            </h4>
-                            <span style="font-size: 0.7rem; color: var(--text-muted);">Daily security breaches</span>
-                        </div>
-                        <div style="flex: 1; position: relative; min-height: 200px;">
-                            <canvas id="trendChart"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- Threat Type Distribution -->
-                    <div class="panel" style="display: flex; flex-direction: column; min-height: 280px;">
-                        <div class="panel-header" style="margin-bottom: 0.8rem;">
-                            <h4 style="font-size: 0.9rem; font-weight: 600; color: var(--text-muted);">
-                                <i class="fa-solid fa-chart-pie" style="color: #ef4444; margin-right: 6px;"></i> Threat Breakdown
-                            </h4>
-                            <span style="font-size: 0.7rem; color: var(--text-muted);">By classification</span>
-                        </div>
-                        <div style="flex: 1; position: relative; min-height: 200px; display: flex; align-items: center; justify-content: center;">
-                            <canvas id="breakdownChart"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- Peak Activity Windows -->
-                    <div class="panel" style="display: flex; flex-direction: column; min-height: 280px;">
-                        <div class="panel-header" style="margin-bottom: 0.8rem;">
-                            <h4 style="font-size: 0.9rem; font-weight: 600; color: var(--text-muted);">
-                                <i class="fa-solid fa-clock" style="color: #f59e0b; margin-right: 6px;"></i> Peak Activity (24h)
-                            </h4>
-                            <span style="font-size: 0.7rem; color: var(--text-muted);">4h diurnal blocks</span>
-                        </div>
-                        <div style="flex: 1; position: relative; min-height: 200px;">
-                            <canvas id="hourlyChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
             {% endblock %}
         </div>
     </main>
@@ -1375,51 +946,40 @@
     <div class="theater-overlay" id="theater-modal">
         <div class="theater-header">
             <div style="display: flex; align-items: center; gap: 14px;">
-                <div class="logo-icon" style="width: 40px; height: 40px; font-size: 1.1rem;"><i class="fa-solid fa-expand"></i></div>
+                <div style="width: 40px; height: 40px; border-radius: 10px; background: var(--primary-blue); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+                    <i class="fa-solid fa-expand"></i>
+                </div>
                 <div>
-                    <h3 id="theater-cam-title" style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; color: #fff;">Tactical Camera Feed</h3>
-                    <span id="theater-cam-sub" style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--cyan-neon);">LIVE SURVEILLANCE &bull; 1080P HD &bull; AI ACTIVE</span>
+                    <h3 id="theater-cam-title" style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; color: #fff;">Surveillance Feed</h3>
+                    <span id="theater-cam-sub" style="font-family: var(--font-mono); font-size: 0.75rem; color: #93c5fd;">LIVE STREAM &bull; AI DETECTION ACTIVE</span>
                 </div>
             </div>
             <div style="display: flex; align-items: center; gap: 10px;">
-                <button type="button" class="btn btn-cyan" onclick="takeSnapshotFromTheater()" title="Capture High-Res Evidence Frame">
+                <button type="button" class="btn btn-primary" onclick="takeSnapshotFromTheater()" title="Capture High-Res Evidence Frame">
                     <i class="fa-solid fa-camera"></i> Snapshot
                 </button>
-                <button type="button" class="modal-close-btn" onclick="closeTheaterMode()" style="width: 40px; height: 40px; font-size: 1.6rem;">&times;</button>
+                <button type="button" class="modal-close-btn" onclick="closeTheaterMode()" style="color: #fff; width: 40px; height: 40px; font-size: 1.6rem;">&times;</button>
             </div>
         </div>
         <div class="theater-feed-container">
             <img src="" alt="Theater Feed" id="theater-stream-img">
-            <div class="cam-scanline"></div>
-            <!-- Tactical reticles -->
-            <div style="position: absolute; top: 16px; left: 16px; width: 24px; height: 24px; border-top: 2px solid var(--cyan-neon); border-left: 2px solid var(--cyan-neon); pointer-events: none;"></div>
-            <div style="position: absolute; top: 16px; right: 16px; width: 24px; height: 24px; border-top: 2px solid var(--cyan-neon); border-right: 2px solid var(--cyan-neon); pointer-events: none;"></div>
-            <div style="position: absolute; bottom: 16px; left: 16px; width: 24px; height: 24px; border-bottom: 2px solid var(--cyan-neon); border-left: 2px solid var(--cyan-neon); pointer-events: none;"></div>
-            <div style="position: absolute; bottom: 16px; right: 16px; width: 24px; height: 24px; border-bottom: 2px solid var(--cyan-neon); border-right: 2px solid var(--cyan-neon); pointer-events: none;"></div>
-            <!-- Bottom HUD Bar -->
-            <div style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10;">
-                <div class="hud-chip"><i class="fa-solid fa-shield-halved" style="color: var(--cyan-neon);"></i> SOC SECURE</div>
-                <div class="hud-chip"><i class="fa-solid fa-microchip" style="color: var(--emerald-neon);"></i> YOLOV11 NANO</div>
-                <div class="hud-chip" id="theater-hud-status"><span class="dot"></span> MONITORING</div>
-            </div>
         </div>
     </div>
 
     <!-- Evidence Lightbox Modal (For Snapshot Zoom) -->
     <div class="modal-backdrop" id="evidence-lightbox" onclick="if(event.target === this) closeEvidenceLightbox()">
-        <div class="modal-window" style="max-width: 860px; max-height: 92vh; background: rgba(8, 12, 24, 0.98);">
+        <div class="modal-window" style="max-width: 860px; max-height: 92vh;">
             <div class="modal-header">
-                <h3 id="lightbox-title"><i class="fa-solid fa-file-shield" style="color: var(--crimson-neon);"></i> Threat Evidence Inspection</h3>
+                <h3 id="lightbox-title"><i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-red);"></i> Threat Evidence Inspection</h3>
                 <button type="button" class="modal-close-btn" onclick="closeEvidenceLightbox()">&times;</button>
             </div>
             <div class="modal-body" style="padding: 1.2rem; display: flex; flex-direction: column; align-items: center; gap: 1rem;">
-                <div style="position: relative; max-width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid var(--panel-border); background: #000;">
+                <div style="position: relative; max-width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-card); background: #000;">
                     <img id="lightbox-img" src="" alt="Evidence Snapshot" style="max-width: 100%; max-height: 60vh; object-fit: contain; display: block;">
-                    <div class="cam-scanline"></div>
                 </div>
-                <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.2rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted); border-top: 1px solid var(--panel-border);">
+                <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.2rem; font-size: 0.82rem; color: var(--text-muted); border-top: 1px solid var(--border-card);">
                     <div id="lightbox-meta">Captured: --</div>
-                    <a id="lightbox-download-btn" href="" download class="btn btn-cyan" style="padding: 6px 14px; font-size: 0.78rem;">
+                    <a id="lightbox-download-btn" href="" download class="btn btn-primary" style="padding: 6px 14px; font-size: 0.78rem;">
                         <i class="fa-solid fa-download"></i> Download Evidence
                     </a>
                 </div>
@@ -1431,7 +991,7 @@
     <div class="modal-backdrop" id="camera-modal">
         <div class="modal-window">
             <div class="modal-header">
-                <h3><i class="fa-solid fa-video" style="color: var(--cyan-neon);"></i> Multi-Camera Grid Manager</h3>
+                <h3><i class="fa-solid fa-video" style="color: var(--primary-blue);"></i> Multi-Camera Grid Manager</h3>
                 <button type="button" class="modal-close-btn" onclick="closeCameraModal()">&times;</button>
             </div>
             <div class="modal-tabs">
@@ -1447,7 +1007,7 @@
                 <!-- Tab 1: Camera List -->
                 <div id="modal-tab-list">
                     <div id="modal-cam-loading" style="text-align: center; padding: 24px; color: var(--text-muted);">
-                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.8rem; margin-bottom: 10px; color: var(--cyan-neon);"></i>
+                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.8rem; margin-bottom: 10px; color: var(--primary-blue);"></i>
                         <div>Scanning connected surveillance nodes...</div>
                     </div>
                     <div id="modal-cam-container" style="display: flex; flex-direction: column; gap: 12px;"></div>
@@ -1456,43 +1016,43 @@
                 <!-- Tab 2: Add Camera -->
                 <div id="modal-tab-add" style="display: none;">
                     <!-- Quick Presets -->
-                    <div style="margin-bottom: 1.4rem;">
-                        <span style="font-size: 0.78rem; font-family: var(--font-mono); color: var(--text-dim); display: block; margin-bottom: 8px; text-transform: uppercase;">1-Click Setup Presets:</span>
+                    <div style="margin-bottom: 1.2rem;">
+                        <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 8px; text-transform: uppercase;">1-Click Setup Presets:</span>
                         <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                             <span class="preset-badge" onclick="quickPreset('ip_webcam')">
-                                <i class="fa-solid fa-mobile-screen" style="color: var(--cyan-neon);"></i> Android Phone (IP Webcam)
+                                <i class="fa-solid fa-mobile-screen" style="color: var(--primary-blue);"></i> Android Phone (IP Webcam)
                             </span>
                             <span class="preset-badge" onclick="quickPreset('webcam')">
-                                <i class="fa-solid fa-laptop" style="color: var(--emerald-neon);"></i> Laptop Webcam (Device 0)
+                                <i class="fa-solid fa-laptop" style="color: var(--accent-green);"></i> Laptop Webcam (Device 0)
                             </span>
                             <span class="preset-badge" onclick="quickPreset('rtsp')">
-                                <i class="fa-solid fa-shield-halved" style="color: var(--purple-neon);"></i> RTSP CCTV Camera
+                                <i class="fa-solid fa-shield-halved" style="color: var(--accent-purple);"></i> RTSP CCTV Camera
                             </span>
                         </div>
                     </div>
 
                     <!-- Setup Guide Box -->
-                    <div style="background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.2); border-radius: 12px; padding: 14px; margin-bottom: 1.4rem; font-size: 0.82rem; color: #cbd5e1;">
-                        <strong style="color: var(--cyan-neon); display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-family: var(--font-display); font-size: 0.9rem;">
+                    <div style="background: var(--primary-blue-light); border: 1px solid var(--primary-blue-border); border-radius: 12px; padding: 14px; margin-bottom: 1.4rem; font-size: 0.82rem; color: #1e3a8a;">
+                        <strong style="color: var(--primary-blue); display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.9rem;">
                             <i class="fa-solid fa-circle-info"></i> How to use your Android Phone as a CCTV:
                         </strong>
-                        <ol style="padding-left: 20px; line-height: 1.6; color: var(--text-muted); font-size: 0.8rem;">
-                            <li>Install <strong style="color: #fff;">"IP Webcam"</strong> free from Google Play Store.</li>
-                            <li>Ensure phone and laptop are on the <strong style="color: #fff;">same Wi-Fi network</strong>.</li>
-                            <li>Open IP Webcam, scroll down and tap <strong style="color: var(--cyan-neon);">"Start server"</strong>.</li>
-                            <li>Enter the IP address (e.g. <code>http://192.168.1.5:8080/video</code>) below and click <strong style="color: #fff;">Test Connection</strong>!</li>
+                        <ol style="padding-left: 20px; line-height: 1.6; color: #334155; font-size: 0.8rem;">
+                            <li>Install <strong>"IP Webcam"</strong> free from Google Play Store.</li>
+                            <li>Ensure phone and laptop are on the <strong>same Wi-Fi network</strong>.</li>
+                            <li>Open IP Webcam, scroll down and tap <strong style="color: var(--primary-blue);">"Start server"</strong>.</li>
+                            <li>Enter the IP address (e.g. <code>http://192.168.1.5:8080/video</code>) below and click <strong>Probe Link</strong>!</li>
                         </ol>
                     </div>
 
                     <form id="add-camera-form" onsubmit="submitAddCamera(event)">
                         <div class="form-group">
                             <label class="form-label">Camera Identifier</label>
-                            <input type="text" id="add-cam-name" class="form-control" placeholder="e.g. Front Gate Phone, Lobby Monitor" required>
+                            <input type="text" id="add-cam-name" class="form-control" placeholder="e.g. Entrance Lobby, Parking Lot, Main Gate" required>
                         </div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                             <div class="form-group">
                                 <label class="form-label">Device Type</label>
-                                <select id="add-cam-type" class="form-control" style="background: rgba(6, 11, 24, 0.95);">
+                                <select id="add-cam-type" class="form-control">
                                     <option value="ip_webcam">Android Phone (IP Webcam)</option>
                                     <option value="rtsp">RTSP Stream / CCTV Camera</option>
                                     <option value="webcam">Local / USB Webcam</option>
@@ -1500,18 +1060,18 @@
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Physical Sector / Location</label>
-                                <input type="text" id="add-cam-location" class="form-control" placeholder="e.g. Sector 4 - Main Entrance">
+                                <input type="text" id="add-cam-location" class="form-control" placeholder="e.g. Sector 1 - Lobby">
                             </div>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Stream Endpoint / Device Index</label>
                             <div style="display: flex; gap: 8px;">
                                 <input type="text" id="add-cam-url" class="form-control" placeholder="http://192.168.1.105:8080/video or 0" required style="font-family: var(--font-mono);">
-                                <button type="button" class="btn" onclick="testCameraConnection()" style="white-space: nowrap; padding: 8px 14px; font-size: 0.8rem; background: rgba(0, 240, 255, 0.1); border-color: rgba(0, 240, 255, 0.35); color: var(--cyan-neon);">
+                                <button type="button" class="btn btn-cyan" onclick="testCameraConnection()" style="white-space: nowrap; padding: 8px 14px; font-size: 0.8rem;">
                                     <i class="fa-solid fa-satellite-dish"></i> Probe Link
                                 </button>
                             </div>
-                            <span style="font-size: 0.72rem; color: var(--text-dim); margin-top: 5px; display: block; font-family: var(--font-mono);">
+                            <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 5px; display: block; font-family: var(--font-mono);">
                                 Android standard MJPEG: <code>http://&lt;phone-ip&gt;:8080/video</code>
                             </span>
                         </div>
@@ -1522,7 +1082,7 @@
                         <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 1.5rem;">
                             <button type="button" class="btn btn-outline" onclick="closeCameraModal()">Cancel</button>
                             <button type="submit" class="btn btn-primary" id="btn-submit-camera">
-                                <i class="fa-solid fa-circle-check"></i> Initialize Node & Start Stream
+                                <i class="fa-solid fa-circle-check"></i> Add Camera & Start Stream
                             </button>
                         </div>
                     </form>
@@ -1531,23 +1091,20 @@
         </div>
     </div>
 
-    <!-- Global Cyber SOC Command Core Scripts -->
+    <!-- Global Command Core Scripts -->
     <script>
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
-        let activeZone = 'right';
         let audioAlertsEnabled = true;
         let lastAlarmTime = 0;
         let activeTheaterCamId = null;
 
-        // 1. UTC Military Digital Clock
+        // 1. Digital Clock (Oct 31, 2026 10:08:47 AM (UTC))
         function updateSOCClock() {
             const clockEl = document.getElementById('soc-utc-clock');
             if (!clockEl) return;
             const now = new Date();
-            const h = String(now.getUTCHours()).padStart(2, '0');
-            const m = String(now.getUTCMinutes()).padStart(2, '0');
-            const s = String(now.getUTCSeconds()).padStart(2, '0');
-            clockEl.innerText = `${h}:${m}:${s} UTC`;
+            const options = { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'UTC', hour12: true };
+            clockEl.innerText = now.toLocaleString('en-US', options) + ' (UTC)';
         }
         setInterval(updateSOCClock, 1000);
         updateSOCClock();
@@ -1558,11 +1115,11 @@
             const btn = document.getElementById('audio-alarm-toggle');
             if (btn) {
                 if (audioAlertsEnabled) {
-                    btn.innerHTML = `<i class="fa-solid fa-volume-high" style="color: var(--cyan-neon);"></i> <span class="hide-mobile">Audio: ON</span>`;
-                    btn.style.borderColor = 'rgba(0, 240, 255, 0.4)';
+                    btn.innerHTML = `<i class="fa-solid fa-volume-high" style="color: var(--primary-blue);"></i> <span class="hide-mobile">Audio: ON</span>`;
+                    btn.style.borderColor = 'var(--primary-blue-border)';
                 } else {
-                    btn.innerHTML = `<i class="fa-solid fa-volume-xmark" style="color: var(--text-dim);"></i> <span class="hide-mobile">Audio: OFF</span>`;
-                    btn.style.borderColor = 'var(--panel-border)';
+                    btn.innerHTML = `<i class="fa-solid fa-volume-xmark" style="color: var(--text-muted);"></i> <span class="hide-mobile">Audio: OFF</span>`;
+                    btn.style.borderColor = 'var(--border-card)';
                 }
             }
         }
@@ -1577,11 +1134,9 @@
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
                 if (type === 'weapon') {
-                    // Urgent double laser alarm
                     osc.type = 'sawtooth';
                     osc.frequency.setValueAtTime(950, ctx.currentTime);
                     osc.frequency.linearRampToValueAtTime(1400, ctx.currentTime + 0.15);
-                    osc.frequency.linearRampToValueAtTime(950, ctx.currentTime + 0.3);
                     gain.gain.setValueAtTime(0.16, ctx.currentTime);
                     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.38);
                     osc.connect(gain);
@@ -1589,7 +1144,6 @@
                     osc.start();
                     osc.stop(ctx.currentTime + 0.38);
                 } else {
-                    // Tactical security sonar chirp
                     osc.type = 'sine';
                     osc.frequency.setValueAtTime(750, ctx.currentTime);
                     osc.frequency.exponentialRampToValueAtTime(320, ctx.currentTime + 0.32);
@@ -1603,23 +1157,7 @@
             } catch (e) {}
         }
 
-        // 3. DEFCON Threat Badge Updater
-        function updateDEFCONBadge(weaponCount, intruderCount) {
-            const defconEl = document.getElementById('top-defcon-badge');
-            if (!defconEl) return;
-            if (weaponCount > 0) {
-                defconEl.className = "soc-defcon-pill threat-weapon hide-mobile";
-                defconEl.innerHTML = `<i class="fa-solid fa-gun fa-beat-fade"></i> DEFCON 1 &bull; WEAPON DETECTED (${weaponCount})`;
-            } else if (intruderCount > 0) {
-                defconEl.className = "soc-defcon-pill threat-intrusion hide-mobile";
-                defconEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation fa-beat-fade"></i> DEFCON 2 &bull; PERIMETER BREACH (${intruderCount})`;
-            } else {
-                defconEl.className = "soc-defcon-pill hide-mobile";
-                defconEl.innerHTML = `<i class="fa-solid fa-shield-check"></i> DEFCON 5 &bull; ALL CLEAR`;
-            }
-        }
-
-        // 4. Fullscreen Cinematic Theater Mode
+        // 3. Fullscreen Theater Mode
         function openTheaterMode(camId, camName, streamUrl) {
             activeTheaterCamId = camId;
             const modal = document.getElementById('theater-modal');
@@ -1651,7 +1189,6 @@
             const link = document.createElement('a');
             link.href = `/video_feed/${camId}/`;
             link.download = `${camName.replace(/\s+/g, '_')}_${Date.now()}.jpg`;
-            // Capture image via hidden canvas
             const img = new Image();
             img.crossOrigin = "anonymous";
             img.onload = function() {
@@ -1668,7 +1205,7 @@
             img.src = `/video_feed/${camId}/?t=${Date.now()}`;
         }
 
-        // 5. Evidence Lightbox Modal
+        // 4. Evidence Lightbox Modal
         function openEvidenceLightbox(url, title, time, type) {
             const modal = document.getElementById('evidence-lightbox');
             const img = document.getElementById('lightbox-img');
@@ -1677,7 +1214,7 @@
             const dlBtn = document.getElementById('lightbox-download-btn');
 
             if (img) img.src = url;
-            if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color: var(--crimson-neon);"></i> ${title || 'Incident Evidence'}`;
+            if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-red);"></i> ${title || 'Incident Evidence'}`;
             if (metaEl) metaEl.innerText = `Timestamp: ${time || 'Recorded'} | Threat Classification: ${type || 'Security Breach'}`;
             if (dlBtn) dlBtn.href = url;
             if (modal) modal.style.display = 'flex';
@@ -1688,7 +1225,7 @@
             if (modal) modal.style.display = 'none';
         }
 
-        // 6. Camera Grid Manager Modal Logic
+        // 5. Camera Management Modal Logic
         function openCameraModal(tab = 'list') {
             const modal = document.getElementById('camera-modal');
             if (modal) modal.style.display = 'flex';
@@ -1755,9 +1292,9 @@
                     if (cams.length === 0) {
                         if (container) {
                             container.innerHTML = `
-                                <div style="text-align: center; padding: 35px 20px; color: var(--text-muted); background: rgba(0,0,0,0.25); border-radius: 12px; border: 1px dashed var(--panel-border);">
-                                    <i class="fa-solid fa-video-slash" style="font-size: 2.2rem; margin-bottom: 12px; color: var(--text-dim); display: block;"></i>
-                                    <div style="font-size: 0.95rem; font-weight: 600; color: #cbd5e1; margin-bottom: 4px;">No Cameras Registered</div>
+                                <div style="text-align: center; padding: 35px 20px; color: var(--text-muted); background: #f8fafc; border-radius: 12px; border: 1px dashed var(--border-card);">
+                                    <i class="fa-solid fa-video-slash" style="font-size: 2.2rem; margin-bottom: 12px; color: #94a3b8; display: block;"></i>
+                                    <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-heading); margin-bottom: 4px;">No Cameras Registered</div>
                                     <div style="font-size: 0.8rem;">Tap "Add Phone / Camera" to connect your Android phone or laptop webcam.</div>
                                 </div>
                             `;
@@ -1767,28 +1304,27 @@
 
                     if (container) {
                         container.innerHTML = cams.map(c => `
-                            <div style="background: rgba(14, 20, 38, 0.75); border: 1px solid var(--panel-border); border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; transition: all 0.2s;">
+                            <div style="background: #ffffff; border: 1px solid var(--border-card); border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: var(--shadow-sm);">
                                 <div style="display: flex; align-items: center; gap: 14px;">
-                                    <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.25); display: flex; align-items: center; justify-content: center; color: var(--cyan-neon); font-size: 1.15rem;">
+                                    <div style="width: 40px; height: 40px; border-radius: 10px; background: var(--primary-blue-light); border: 1px solid var(--primary-blue-border); display: flex; align-items: center; justify-content: center; color: var(--primary-blue); font-size: 1.1rem;">
                                         ${c.camera_type === 'ip_webcam' ? '<i class="fa-solid fa-mobile-screen"></i>' : (c.camera_type === 'webcam' ? '<i class="fa-solid fa-laptop"></i>' : '<i class="fa-solid fa-video"></i>')}
                                     </div>
                                     <div>
-                                        <div style="display: flex; align-items: center; gap: 10px;">
-                                            <strong style="font-size: 0.98rem; color: #fff; font-family: var(--font-display);">${c.name}</strong>
-                                            <span class="status-dot ${c.is_active ? (c.status.includes('ONLINE') || c.status.includes('MONITORING') ? 'online' : 'offline') : 'offline'}"></span>
-                                            <span style="font-family: var(--font-mono); font-size: 0.72rem; color: ${c.is_active ? 'var(--emerald-neon)' : 'var(--text-dim)'};">${c.is_active ? c.status : 'DISABLED'}</span>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <strong style="font-size: 0.95rem; color: var(--text-heading);">${c.name}</strong>
+                                            <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 10px; font-weight: 600; background: ${c.is_active ? '#ecfdf5' : '#f1f5f9'}; color: ${c.is_active ? '#059669' : '#64748b'};">${c.is_active ? c.status : 'DISABLED'}</span>
                                         </div>
-                                        <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 3px; font-family: var(--font-mono);">
+                                        <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
                                             <span>${c.location || 'Local Sector'}</span> &bull; 
-                                            <code style="color: #94a3b8;">${c.stream_url}</code>
+                                            <code style="color: var(--text-body);">${c.stream_url}</code>
                                         </div>
                                     </div>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 8px;">
-                                    <button type="button" class="btn" onclick="toggleCameraModal(${c.id}, ${c.is_active})" style="padding: 6px 12px; font-size: 0.78rem; color: ${c.is_active ? '#f87171' : 'var(--emerald-neon)'}; border-color: rgba(255,255,255,0.1);">
+                                    <button type="button" class="btn btn-outline" onclick="toggleCameraModal(${c.id}, ${c.is_active})" style="padding: 6px 12px; font-size: 0.78rem; color: ${c.is_active ? '#ef4444' : '#059669'};">
                                         <i class="fa-solid ${c.is_active ? 'fa-pause' : 'fa-play'}"></i> ${c.is_active ? 'Disable' : 'Enable'}
                                     </button>
-                                    <button type="button" class="btn" onclick="deleteCameraModal(${c.id}, '${c.name}')" style="padding: 6px 10px; font-size: 0.78rem; color: #f87171; border-color: rgba(239,68,68,0.25);" title="Delete Camera Node">
+                                    <button type="button" class="btn btn-outline" onclick="deleteCameraModal(${c.id}, '${c.name}')" style="padding: 6px 10px; font-size: 0.78rem; color: #ef4444;" title="Delete Camera">
                                         <i class="fa-solid fa-trash"></i>
                                     </button>
                                 </div>
@@ -1813,9 +1349,9 @@
             }
 
             feedback.style.display = 'block';
-            feedback.style.background = 'rgba(0, 240, 255, 0.12)';
-            feedback.style.border = '1px solid rgba(0, 240, 255, 0.35)';
-            feedback.style.color = 'var(--cyan-neon)';
+            feedback.style.background = 'var(--primary-blue-light)';
+            feedback.style.border = '1px solid var(--primary-blue-border)';
+            feedback.style.color = 'var(--primary-blue)';
             feedback.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Testing socket ping & stream handshake...';
 
             const controller = new AbortController();
@@ -1836,21 +1372,21 @@
                 const data = await res.json();
 
                 if (data.success) {
-                    feedback.style.background = 'rgba(16, 185, 129, 0.15)';
-                    feedback.style.border = '1px solid rgba(16, 185, 129, 0.4)';
-                    feedback.style.color = '#34d399';
+                    feedback.style.background = 'var(--accent-green-light)';
+                    feedback.style.border = '1px solid var(--accent-green-border)';
+                    feedback.style.color = 'var(--accent-green-dark)';
                     feedback.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${data.message}`;
                 } else {
-                    feedback.style.background = 'rgba(239, 68, 68, 0.15)';
-                    feedback.style.border = '1px solid rgba(239, 68, 68, 0.4)';
-                    feedback.style.color = '#fca5a5';
+                    feedback.style.background = 'var(--accent-red-light)';
+                    feedback.style.border = '1px solid var(--accent-red-border)';
+                    feedback.style.color = 'var(--accent-red)';
                     feedback.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> ${data.error || 'Connection failed.'}`;
                 }
             } catch (err) {
                 clearTimeout(timeoutId);
-                feedback.style.background = 'rgba(239, 68, 68, 0.15)';
-                feedback.style.border = '1px solid rgba(239, 68, 68, 0.4)';
-                feedback.style.color = '#fca5a5';
+                feedback.style.background = 'var(--accent-red-light)';
+                feedback.style.border = '1px solid var(--accent-red-border)';
+                feedback.style.color = 'var(--accent-red)';
                 if (err.name === 'AbortError') {
                     feedback.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Probe timed out. Check IP and Wi-Fi connection.`;
                 } else {
@@ -1899,7 +1435,7 @@
                 alert('Request error: ' + err);
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Initialize Node & Start Stream';
+                btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Add Camera & Start Stream';
             }
         }
 
@@ -1939,33 +1475,7 @@
             }
         }
 
-        // Single-Camera Fallback Support (For pages using default main_content)
-        if (document.getElementById('video-stream')) {
-            // Setup zone boundary logic if canvas exists
-            const sCanvas = document.getElementById('zone-canvas');
-            if (sCanvas) {
-                // Initialize fallback stats polling for single-cam views
-                async function fetchSingleStats() {
-                    try {
-                        const response = await fetch('/api/stats');
-                        if (response.ok) {
-                            const data = await response.json();
-                            const pEl = document.getElementById('stat-people');
-                            const iEl = document.getElementById('stat-intruders');
-                            const wEl = document.getElementById('stat-weapons');
-                            if (pEl) pEl.innerText = data.total_persons !== undefined ? data.total_persons : (data.person_count || 0);
-                            if (iEl) iEl.innerText = data.total_intruders !== undefined ? data.total_intruders : (data.intruder_count || 0);
-                            if (wEl) wEl.innerText = data.total_weapons !== undefined ? data.total_weapons : (data.weapon_count || 0);
-                            updateDEFCONBadge(data.total_weapons || 0, data.total_intruders || 0);
-                        }
-                    } catch (e) {}
-                }
-                setInterval(fetchSingleStats, 1000);
-            }
-        }
-
         {% block extra_scripts %}{% endblock %}
     </script>
 </body>
 </html>
-

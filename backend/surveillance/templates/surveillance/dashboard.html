@@ -1,410 +1,930 @@
 {% extends 'surveillance/base.html' %}
 
 {% block main_content %}
-<!-- System-Wide Cyber Threat Alert Banner -->
-<div id="system-alert-banner" class="alert-banner" style="display: none; margin-bottom: 0.75rem;">
-    <div class="alert-banner-content">
-        <i id="alert-icon" class="fa-solid fa-triangle-exclamation fa-beat-fade"></i>
-        <div>
-            <strong id="alert-title">SECURITY THREAT DETECTED:</strong>
-            <span id="alert-message">Intruder breach inside Restricted Perimeter! Evidence captured.</span>
-        </div>
-    </div>
-    <div class="alert-badge-live" id="alert-badge">BREACH ACTIVE</div>
-</div>
+<div style="display: flex; flex-direction: column; gap: 1.4rem;">
 
-<!-- Top SOC Telemetry Stat Cards -->
-<div class="stats-row">
-    <!-- Stat 1: Camera Grid -->
-    <div class="stat-box" id="cams-stat-box">
-        <div class="stat-icon icon-purple"><i class="fa-solid fa-network-wired"></i></div>
-        <div class="stat-info">
-            <h3>Camera Grid</h3>
-            <div class="value">
-                <span class="status-dot online" id="cams-dot"></span>
-                <span id="stat-cams-online">{{ camera_count }}</span>
-                <span style="font-size: 1rem; color: var(--text-muted); font-weight: 400;">/ <span id="stat-cams-total">{{ camera_count }}</span></span>
+    <!-- 1. Hero Welcome Banner (CCTV Surveillance Dashboard - Monitor • Detect • Protect) -->
+    <div class="hero-banner">
+        <div class="hero-content">
+            <div class="hero-shield-icon">
+                <i class="fa-solid fa-shield-halved"></i>
             </div>
-            <div class="sub-text" id="stat-cams-sub">IP & Webcam Grid</div>
-        </div>
-    </div>
-
-    <!-- Stat 2: People Monitored -->
-    <div class="stat-box">
-        <div class="stat-icon icon-green"><i class="fa-solid fa-users"></i></div>
-        <div class="stat-info">
-            <h3>People Monitored</h3>
-            <div class="value" id="stat-people">0</div>
-            <div class="sub-text">In active camera sectors</div>
-        </div>
-    </div>
-
-    <!-- Stat 3: Zone Intrusions -->
-    <div class="stat-box" id="intruder-stat-box">
-        <div class="stat-icon icon-red"><i class="fa-solid fa-triangle-exclamation"></i></div>
-        <div class="stat-info">
-            <h3>Zone Intrusions</h3>
-            <div class="value" id="stat-intruders" style="color: var(--crimson-neon);">0</div>
-            <div class="sub-text" id="stat-intruders-sub">Secured perimeters</div>
-        </div>
-    </div>
-
-    <!-- Stat 4: Weapons Found -->
-    <div class="stat-box" id="weapon-stat-box">
-        <div class="stat-icon icon-orange"><i class="fa-solid fa-gun"></i></div>
-        <div class="stat-info">
-            <h3>Weapons Found</h3>
-            <div class="value" id="stat-weapons" style="color: var(--amber-neon);">0</div>
-            <div class="sub-text" id="stat-weapons-sub">No threats detected</div>
-        </div>
-    </div>
-
-    <!-- Stat 5: Edge AI Inference Core -->
-    <div class="stat-box">
-        <div class="stat-icon icon-blue"><i class="fa-solid fa-microchip"></i></div>
-        <div class="stat-info">
-            <h3>Edge AI Core</h3>
-            <div class="value" id="stat-sys" style="font-size: 1.1rem; font-weight: 700; color: var(--cyan-neon);">Round-Robin</div>
-            <div class="sub-text">Intel i3 Fair CPU Scheduling</div>
-        </div>
-    </div>
-</div>
-
-<!-- Tactical Layout & Camera Navigation Bar -->
-<div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 0.6rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
-    <!-- Left: View Mode Tabs & Layout Presets -->
-    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-        <!-- View Mode (Grid vs Focus) -->
-        <div class="view-mode-tabs">
-            <button type="button" class="view-mode-btn active" id="btn-mode-grid" onclick="switchViewMode('grid')">
-                <i class="fa-solid fa-table-cells-large"></i> Multi-Camera Grid
-            </button>
-            <button type="button" class="view-mode-btn" id="btn-mode-focus" onclick="switchViewMode('focus')">
-                <i class="fa-solid fa-expand"></i> Single Focus View
-            </button>
-        </div>
-
-        <!-- Grid Layout Switcher Presets -->
-        <div class="view-mode-tabs hide-mobile" id="grid-layout-presets">
-            <button type="button" class="view-mode-btn active" id="layout-auto" onclick="setGridPreset('auto')" title="Auto-fill dynamic grid">
-                <i class="fa-solid fa-table-cells"></i> Auto
-            </button>
-            <button type="button" class="view-mode-btn" id="layout-2x2" onclick="setGridPreset('2x2')" title="2x2 Matrix Grid">
-                <i class="fa-solid fa-border-all"></i> 2x2
-            </button>
-            <button type="button" class="view-mode-btn" id="layout-1plus3" onclick="setGridPreset('1plus3')" title="1 Major + 3 Minor Command Grid">
-                <i class="fa-solid fa-diagram-project"></i> Command
-            </button>
-        </div>
-    </div>
-
-    <!-- Center: Camera Quick-Pill Chips -->
-    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;" id="camera-pills-bar">
-        <button type="button" class="btn active" id="pill-all" onclick="switchViewMode('grid')" style="padding: 6px 14px; font-size: 0.78rem; border-radius: 20px; background: rgba(0, 240, 255, 0.15); border-color: var(--cyan-neon); color: var(--cyan-neon); font-family: var(--font-mono);">
-            <i class="fa-solid fa-table-cells"></i> ALL NODES
-        </button>
-        {% for cam in cameras %}
-        <button type="button" class="btn" id="pill-cam-{{ cam.id }}" onclick="focusCamera({{ cam.id }})" style="padding: 6px 14px; font-size: 0.78rem; border-radius: 20px; font-family: var(--font-mono);">
-            {% if cam.camera_type == 'ip_webcam' %}
-                <i class="fa-solid fa-mobile-screen" style="color: var(--cyan-neon);"></i>
-            {% elif cam.camera_type == 'webcam' %}
-                <i class="fa-solid fa-laptop" style="color: var(--emerald-neon);"></i>
-            {% else %}
-                <i class="fa-solid fa-video" style="color: var(--purple-neon);"></i>
-            {% endif %}
-            {{ cam.name|truncatechars:18 }}
-        </button>
-        {% endfor %}
-    </div>
-
-    <!-- Right: Quick Action Buttons -->
-    <div style="display: flex; gap: 8px;">
-        <a href="{% url 'analytics_dashboard' %}" class="btn" style="padding: 7px 14px; font-size: 0.8rem; border-radius: 10px;">
-            <i class="fa-solid fa-chart-line" style="color: var(--cyan-neon);"></i> Analytics
-        </a>
-        <button type="button" class="btn btn-cyan" onclick="openCameraModal('add')" style="padding: 7px 14px; font-size: 0.8rem; border-radius: 10px;">
-            <i class="fa-solid fa-plus"></i> Add Phone / Cam
-        </button>
-        <button type="button" class="btn" onclick="openCameraModal('list')" style="padding: 7px 14px; font-size: 0.8rem; border-radius: 10px;">
-            <i class="fa-solid fa-sliders"></i> Grid Config
-        </button>
-    </div>
-</div>
-
-<!-- ========================================== -->
-<!-- 1. MULTI-CAMERA RESPONSIVE GRID VIEW       -->
-<!-- ========================================== -->
-<div id="grid-view-container" style="display: block;">
-    <div class="cam-grid-container" id="camera-grid">
-        {% if cameras %}
-            {% for cam in cameras %}
-            <div class="cam-tile" id="tile-cam-{{ cam.id }}">
-                <!-- Tile Header -->
-                <div class="cam-tile-header">
-                    <div class="cam-tile-title">
-                        <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.25); display: flex; align-items: center; justify-content: center; font-size: 0.95rem; color: var(--cyan-neon);">
-                            {% if cam.camera_type == 'ip_webcam' %}
-                                <i class="fa-solid fa-mobile-screen"></i>
-                            {% elif cam.camera_type == 'webcam' %}
-                                <i class="fa-solid fa-laptop"></i>
-                            {% else %}
-                                <i class="fa-solid fa-video"></i>
-                            {% endif %}
-                        </div>
-                        <div>
-                            <h4>{{ cam.name }}</h4>
-                            <span>{{ cam.location|default:"Surveillance Sector" }} &bull; {{ cam.get_camera_type_display }}</span>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span class="live-rec-pill" id="badge-cam-{{ cam.id }}">
-                            <span class="live-rec-dot"></span> LIVE REC
-                        </span>
-                        <button type="button" class="btn" onclick="openTheaterMode({{ cam.id }}, '{{ cam.name|escapejs }}', '/video_feed/{{ cam.id }}/')" style="padding: 4px 8px; font-size: 0.75rem; border-radius: 8px;" title="Cinematic Theater Mode">
-                            <i class="fa-solid fa-expand"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Tile Video Feed with Tactical Reticles & Scanlines -->
-                <div class="cam-tile-feed">
-                    <img src="/video_feed/{{ cam.id }}/" alt="{{ cam.name }}" id="stream-grid-{{ cam.id }}">
-                    <div class="cam-scanline"></div>
-
-                    <!-- HUD Telemetry overlay (Top Left) -->
-                    <div class="cam-tile-hud">
-                        <div class="hud-chip">
-                            <i class="fa-solid fa-user" style="color: var(--emerald-neon);"></i> <span id="hud-people-{{ cam.id }}">0</span>
-                        </div>
-                        <div class="hud-chip" id="hud-chip-intruders-{{ cam.id }}">
-                            <i class="fa-solid fa-triangle-exclamation" style="color: var(--crimson-neon);"></i> <span id="hud-intruders-{{ cam.id }}">0</span>
-                        </div>
-                        <div class="hud-chip" id="hud-chip-weapons-{{ cam.id }}">
-                            <i class="fa-solid fa-gun" style="color: var(--amber-neon);"></i> <span id="hud-weapons-{{ cam.id }}">0</span>
-                        </div>
-                    </div>
-
-                    <!-- HUD Telemetry Specs (Top Right) -->
-                    <div style="position: absolute; top: 10px; right: 10px; z-index: 10;">
-                        <div class="hud-chip" style="font-size: 0.68rem; opacity: 0.85;">
-                            <i class="fa-solid fa-tower-broadcast" style="color: var(--cyan-neon);"></i> 25 FPS
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tile Footer Toolbar -->
-                <div class="cam-tile-footer">
-                    <span style="color: var(--text-dim); font-size: 0.78rem; font-family: var(--font-mono);">
-                        ZONE: <strong id="hud-zone-{{ cam.id }}" style="color: var(--cyan-neon);">{{ cam.zone_mode|upper }}</strong>
-                    </span>
-                    <div style="display: flex; gap: 6px;">
-                        <button type="button" class="btn" onclick="downloadCameraSnapshot({{ cam.id }}, '{{ cam.name|escapejs }}')" style="padding: 5px 10px; font-size: 0.74rem;" title="Capture Snapshot">
-                            <i class="fa-solid fa-camera"></i>
-                        </button>
-                        <button type="button" class="btn btn-cyan" onclick="focusCamera({{ cam.id }})" style="padding: 5px 12px; font-size: 0.74rem;">
-                            <i class="fa-solid fa-sliders"></i> Focus & Zone
-                        </button>
-                    </div>
-                </div>
+            <div>
+                <h1 class="hero-title">CCTV Surveillance Dashboard</h1>
+                <p class="hero-subtitle">Monitor &bull; Detect &bull; Protect</p>
             </div>
-            {% endfor %}
-        {% else %}
-            <div style="grid-column: 1 / -1; padding: 50px 20px; text-align: center; background: var(--panel-glass); border-radius: 18px; border: 1px dashed var(--panel-border);">
-                <i class="fa-solid fa-video-slash" style="font-size: 3.5rem; color: var(--text-dim); margin-bottom: 16px; display: block;"></i>
-                <h3 style="font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; margin-bottom: 8px;">No Surveillance Nodes Connected</h3>
-                <p style="color: var(--text-muted); font-size: 0.92rem; max-width: 520px; margin: 0 auto 24px; line-height: 1.6;">
-                    Turn your Android phone into an IP surveillance camera in seconds, or initialize your laptop webcam to begin monitoring.
-                </p>
-                <button type="button" class="btn btn-cyan" onclick="openCameraModal('add')" style="padding: 10px 24px; font-size: 0.95rem; font-weight: 600;">
-                    <i class="fa-solid fa-plus"></i> Connect First Camera
-                </button>
+        </div>
+        <!-- Decorative Skyline and CCTV Camera Graphic -->
+        <div class="hero-cctv-graphic hide-mobile">
+            <i class="fa-solid fa-video-slash" style="display: none;"></i>
+            <div class="cctv-lens-ring">
+                <div class="cctv-lens-pupil"></div>
             </div>
-        {% endif %}
+        </div>
     </div>
-</div>
 
-<!-- ========================================== -->
-<!-- 2. SINGLE CAMERA FOCUS VIEW                -->
-<!-- ========================================== -->
-<div id="focus-view-container" style="display: none;">
-    <div class="main-grid" style="display: grid; grid-template-columns: 2.2fr 1fr; gap: 1.5rem;">
-        <!-- Left: Full-size Video Feed with Interactive Zone Canvas -->
-        <div class="panel" style="padding: 1.25rem;">
-            <div class="panel-header">
+    <!-- 2. Row of 4 Metric Cards (Matching the Reference Design) -->
+    <div class="stats-cards-grid">
+        <!-- Card 1: Total Cameras (Blue) -->
+        <div class="stat-card blue-card">
+            <div class="stat-card-top">
+                <div class="stat-icon-circle blue-circle">
+                    <i class="fa-solid fa-video"></i>
+                </div>
                 <div>
-                    <h3 id="focus-title" style="font-family: var(--font-display); font-size: 1.25rem;"><i class="fa-solid fa-video" style="color: var(--cyan-neon);"></i> Camera Feed</h3>
-                    <span id="focus-location-sub" style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-dim); margin-top: 3px; display: block;">Live Surveillance Feed</span>
+                    <div class="stat-number" id="stat-cams-online">{{ camera_count }}</div>
+                    <div class="stat-label">Total Cameras</div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <button type="button" class="btn" onclick="openTheaterMode(focusedCamId, document.getElementById('focus-info-name').innerText, `/video_feed/${focusedCamId}/`)" style="padding: 6px 12px; font-size: 0.78rem;" title="Fullscreen Theater Mode">
-                        <i class="fa-solid fa-expand"></i> Theater
-                    </button>
-                    <button type="button" class="btn btn-cyan" onclick="switchViewMode('grid')" style="padding: 6px 12px; font-size: 0.78rem;">
-                        <i class="fa-solid fa-table-cells"></i> Grid View
-                    </button>
-                    <span class="live-rec-pill" id="focus-feed-badge">
-                        <span class="live-rec-dot"></span> LIVE REC
-                    </span>
+                <div class="stat-trend-badge green-badge">
+                    <i class="fa-solid fa-arrow-up"></i> 0%
                 </div>
             </div>
-
-            <div class="video-feed-wrapper" id="focus-feed-wrapper" style="position: relative; border-radius: 14px; overflow: hidden; border: 1px solid var(--panel-border); background: #000;">
-                <img src="/video_feed" alt="Focused Live Feed" id="focus-stream-img" style="width: 100%; display: block;">
-                <div class="cam-scanline"></div>
-                <canvas id="focus-zone-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></canvas>
-                <div id="focus-draw-prompt" style="display: none; position: absolute; top: 16px; left: 50%; transform: translateX(-50%); background: rgba(8, 12, 24, 0.95); backdrop-filter: blur(10px); color: #fff; padding: 8px 20px; border-radius: 20px; font-size: 0.82rem; z-index: 20; border: 1px solid var(--crimson-neon); box-shadow: 0 4px 25px rgba(255, 23, 68, 0.5); pointer-events: none; font-family: var(--font-mono);">
-                    <i class="fa-solid fa-crosshairs" style="color: var(--crimson-neon); margin-right: 6px;"></i> Click & drag on video to draw boundary
-                </div>
-            </div>
+            <!-- Bottom Wave Graphic -->
+            <svg class="stat-wave" viewBox="0 0 200 45" preserveAspectRatio="none">
+                <path d="M0,25 C50,10 100,38 150,20 C175,12 190,26 200,20 L200,45 L0,45 Z" fill="rgba(37, 99, 235, 0.12)"></path>
+                <path d="M0,32 C40,22 90,40 140,28 C170,20 185,32 200,28 L200,45 L0,45 Z" fill="rgba(37, 99, 235, 0.18)"></path>
+            </svg>
         </div>
 
-        <!-- Right: Focused Camera Controls & Zone Boundaries -->
-        <div class="right-column" style="display: flex; flex-direction: column; gap: 1.4rem;">
-            <!-- Zone Configuration Panel -->
-            <div class="panel">
-                <div class="panel-header" style="margin-bottom: 0.8rem;">
-                    <h3><i class="fa-solid fa-draw-polygon" style="color: var(--cyan-neon);"></i> Restricted Perimeter</h3>
-                    <span class="status-pill" id="focus-zone-active-pill" style="padding: 3px 10px; font-size: 0.72rem; background: rgba(0,240,255,0.15); color: var(--cyan-neon); border: 1px solid rgba(0,240,255,0.35);">
-                        Loading...
-                    </span>
+        <!-- Card 2: People Detected (Purple) -->
+        <div class="stat-card purple-card">
+            <div class="stat-card-top">
+                <div class="stat-icon-circle purple-circle">
+                    <i class="fa-solid fa-users"></i>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                    <button type="button" class="btn zone-btn" data-zone="right" onclick="setFocusedCameraZone('right')">
-                        <i class="fa-solid fa-arrow-right"></i> Right Sector
-                    </button>
-                    <button type="button" class="btn zone-btn" data-zone="left" onclick="setFocusedCameraZone('left')">
-                        <i class="fa-solid fa-arrow-left"></i> Left Sector
-                    </button>
-                    <button type="button" class="btn zone-btn" data-zone="center" onclick="setFocusedCameraZone('center')">
-                        <i class="fa-solid fa-crosshairs"></i> Center Box
-                    </button>
-                    <button type="button" class="btn zone-btn" data-zone="corridor" onclick="setFocusedCameraZone('corridor')">
-                        <i class="fa-solid fa-road"></i> Corridor
-                    </button>
+                <div>
+                    <div class="stat-number" id="stat-people">0</div>
+                    <div class="stat-label">People Detected</div>
                 </div>
-
-                <!-- Custom Draw & Slider Controls -->
-                <div style="margin-top: 10px; display: flex; gap: 8px;">
-                    <button type="button" class="btn zone-btn" id="btn-draw-focus-zone" onclick="toggleFocusDrawMode()" style="flex: 1; border-color: rgba(0, 240, 255, 0.4); color: var(--cyan-neon); background: rgba(0, 240, 255, 0.08);">
-                        <i class="fa-solid fa-pen-ruler"></i> Draw on Video
-                    </button>
-                    <button type="button" class="btn zone-btn" id="btn-toggle-focus-sliders" onclick="toggleFocusSliders()" style="padding: 8px 14px;" title="Fine-tune boundary extent">
-                        <i class="fa-solid fa-sliders"></i>
-                    </button>
-                </div>
-
-                <!-- Fine-Tune Sliders -->
-                <div id="focus-sliders-panel" style="display: none; margin-top: 12px; padding: 14px; background: rgba(6, 11, 24, 0.85); border-radius: 12px; border: 1px solid var(--panel-border);">
-                    <div style="font-size: 0.75rem; font-family: var(--font-mono); color: var(--text-dim); margin-bottom: 8px; display: flex; justify-content: space-between;">
-                        <span>EXTENT (640x480):</span>
-                        <span id="focus-extent-display" style="color: var(--cyan-neon); font-weight: 600;">320, 0, 640, 480</span>
-                    </div>
-                    <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.75rem; font-family: var(--font-mono);">
-                        <div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                                <span>Left (X1):</span><span id="focus-val-x1">320</span>
-                            </div>
-                            <input type="range" id="focus-slider-x1" min="0" max="640" value="320" style="width: 100%; cursor: pointer;" oninput="onFocusSliderChange()">
-                        </div>
-                        <div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                                <span>Right (X2):</span><span id="focus-val-x2">640</span>
-                            </div>
-                            <input type="range" id="focus-slider-x2" min="0" max="640" value="640" style="width: 100%; cursor: pointer;" oninput="onFocusSliderChange()">
-                        </div>
-                        <div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                                <span>Top (Y1):</span><span id="focus-val-y1">0</span>
-                            </div>
-                            <input type="range" id="focus-slider-y1" min="0" max="480" value="0" style="width: 100%; cursor: pointer;" oninput="onFocusSliderChange()">
-                        </div>
-                        <div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                                <span>Bottom (Y2):</span><span id="focus-val-y2">480</span>
-                            </div>
-                            <input type="range" id="focus-slider-y2" min="0" max="480" value="480" style="width: 100%; cursor: pointer;" oninput="onFocusSliderChange()">
-                        </div>
-                    </div>
-                    <button type="button" class="btn btn-primary" onclick="saveFocusCustomSliders()" style="margin-top: 10px; width: 100%; padding: 8px; font-size: 0.82rem;">
-                        <i class="fa-solid fa-floppy-disk"></i> Commit Extent
-                    </button>
-                </div>
-
-                <button type="button" class="btn zone-btn" data-zone="off" onclick="setFocusedCameraZone('off')" style="margin-top: 8px; width: 100%;">
-                    <i class="fa-solid fa-ban"></i> Disable Perimeter
-                </button>
-                <div id="focus-save-toast" style="display: none; margin-top: 8px; font-size: 0.75rem; color: var(--emerald-neon); text-align: center; font-family: var(--font-mono);">
-                    <i class="fa-solid fa-circle-check"></i> Boundary updated successfully!
+                <div class="stat-trend-badge green-badge">
+                    <i class="fa-solid fa-arrow-up"></i> +50%
                 </div>
             </div>
+            <!-- Bottom Wave Graphic -->
+            <svg class="stat-wave" viewBox="0 0 200 45" preserveAspectRatio="none">
+                <path d="M0,28 C45,15 95,36 145,22 C175,14 190,28 200,22 L200,45 L0,45 Z" fill="rgba(139, 92, 246, 0.12)"></path>
+                <path d="M0,35 C40,25 90,42 140,30 C170,22 185,34 200,30 L200,45 L0,45 Z" fill="rgba(139, 92, 246, 0.18)"></path>
+            </svg>
+        </div>
 
-            <!-- Focused Camera Telemetry Panel -->
-            <div class="panel">
-                <div class="panel-header" style="margin-bottom: 6px;">
-                    <h3><i class="fa-solid fa-circle-info" style="color: var(--cyan-neon);"></i> Node Telemetry</h3>
+        <!-- Card 3: Active Threat (Red/Coral) -->
+        <div class="stat-card red-card">
+            <div class="stat-card-top">
+                <div class="stat-icon-circle red-circle">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
                 </div>
-                <div class="info-row" style="display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.82rem; border-bottom: 1px solid rgba(255,255,255,0.04);">
-                    <span style="color: var(--text-dim); font-family: var(--font-mono);">Device:</span>
-                    <span id="focus-info-name" style="font-weight: 600; color: #fff;">Loading...</span>
+                <div>
+                    <div class="stat-number" id="stat-threats" style="color: var(--accent-red-dark);">0</div>
+                    <div class="stat-label">Active Threat</div>
                 </div>
-                <div class="info-row" style="display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.82rem; border-bottom: 1px solid rgba(255,255,255,0.04);">
-                    <span style="color: var(--text-dim); font-family: var(--font-mono);">Protocol:</span>
-                    <span id="focus-info-type" style="color: var(--cyan-neon); font-family: var(--font-mono);">IP Webcam</span>
-                </div>
-                <div class="info-row" style="display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.82rem; border-bottom: 1px solid rgba(255,255,255,0.04);">
-                    <span style="color: var(--text-dim); font-family: var(--font-mono);">Endpoint:</span>
-                    <span id="focus-info-url" style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">-</span>
-                </div>
-                <div class="info-row" style="display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.82rem;">
-                    <span style="color: var(--text-dim); font-family: var(--font-mono);">State:</span>
-                    <span id="focus-info-status" style="color: var(--emerald-neon); font-family: var(--font-mono); font-weight: 700;">ONLINE</span>
-                </div>
-                <div style="display: flex; gap: 8px; margin-top: 15px;">
-                    <button type="button" class="btn" id="btn-focus-toggle-cam" onclick="toggleCurrentFocusedCamera()" style="flex: 1; padding: 9px; font-size: 0.8rem;">
-                        <i class="fa-solid fa-power-off"></i> Toggle Feed
-                    </button>
-                    <button type="button" class="btn" onclick="openCameraModal('list')" style="padding: 9px 14px; font-size: 0.8rem;" title="Configure Grid">
-                        <i class="fa-solid fa-gear"></i>
-                    </button>
+                <div class="stat-trend-badge red-badge" id="threat-trend-badge">
+                    <i class="fa-solid fa-arrow-up"></i> +1
                 </div>
             </div>
+            <!-- Bottom Wave Graphic -->
+            <svg class="stat-wave" viewBox="0 0 200 45" preserveAspectRatio="none">
+                <path d="M0,26 C55,12 95,38 145,24 C175,15 190,28 200,24 L200,45 L0,45 Z" fill="rgba(239, 68, 68, 0.12)"></path>
+                <path d="M0,34 C45,24 95,40 140,32 C170,24 185,34 200,32 L200,45 L0,45 Z" fill="rgba(239, 68, 68, 0.18)"></path>
+            </svg>
+        </div>
+
+        <!-- Card 4: System Health (Emerald Green) -->
+        <div class="stat-card green-card">
+            <div class="stat-card-top">
+                <div class="stat-icon-circle green-circle">
+                    <i class="fa-solid fa-heart-pulse"></i>
+                </div>
+                <div>
+                    <div class="stat-number">98%</div>
+                    <div class="stat-label">System Health</div>
+                </div>
+                <div class="stat-trend-badge green-badge">
+                    <i class="fa-solid fa-check"></i> Normal
+                </div>
+            </div>
+            <!-- Bottom Wave Graphic -->
+            <svg class="stat-wave" viewBox="0 0 200 45" preserveAspectRatio="none">
+                <path d="M0,25 C50,14 100,36 150,22 C175,14 190,26 200,22 L200,45 L0,45 Z" fill="rgba(16, 185, 129, 0.12)"></path>
+                <path d="M0,32 C40,24 90,40 140,30 C170,22 185,32 200,30 L200,45 L0,45 Z" fill="rgba(16, 185, 129, 0.18)"></path>
+            </svg>
         </div>
     </div>
-</div>
+
+    <!-- 3. Middle Section: Live Camera Feeds (Left 65%) & Alerts + Quick Actions (Right 35%) -->
+    <div class="middle-layout-grid">
+        
+        <!-- Left Column: Live Camera Feeds (2x2 Matrix) -->
+        <div class="panel" style="display: flex; flex-direction: column;">
+            <div class="panel-header">
+                <h3><i class="fa-solid fa-video" style="color: var(--primary-blue);"></i> Live Camera Feeds</h3>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <!-- View Mode Toggle -->
+                    <div class="subtle-segmented-control hide-mobile">
+                        <button type="button" class="seg-btn active" id="btn-mode-grid" onclick="switchViewMode('grid')">
+                            <i class="fa-solid fa-table-cells-large"></i> Grid
+                        </button>
+                        <button type="button" class="seg-btn" id="btn-mode-focus" onclick="switchViewMode('focus')">
+                            <i class="fa-solid fa-expand"></i> Focus
+                        </button>
+                    </div>
+                    <a href="javascript:void(0)" onclick="openCameraModal('list')" class="view-all-link">
+                        View All <i class="fa-solid fa-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Multi-Camera Grid Container -->
+            <div id="grid-view-container">
+                <div class="cam-grid-container" id="camera-grid">
+                    {% if cameras %}
+                        {% for cam in cameras %}
+                        <div class="cam-tile" id="tile-cam-{{ cam.id }}">
+                            <!-- Live Video Stream -->
+                            <img src="/video_feed/{{ cam.id }}/" alt="{{ cam.name }}" id="stream-grid-{{ cam.id }}">
+                            
+                            <!-- Top Left Overlay Badge: Camera Sector Name -->
+                            <div class="cam-overlay-name">
+                                <span class="status-dot-pulse" style="width: 6px; height: 6px;"></span>
+                                <span>{{ cam.name }}</span>
+                            </div>
+
+                            <!-- Top Right Expand Button -->
+                            <button type="button" class="cam-overlay-expand" onclick="openTheaterMode({{ cam.id }}, '{{ cam.name|escapejs }}', '/video_feed/{{ cam.id }}/')" title="Fullscreen View">
+                                <i class="fa-solid fa-expand"></i>
+                            </button>
+
+                            <!-- Bottom Left Status Badge (Online / Intrusion) -->
+                            <div class="cam-overlay-status status-online" id="badge-cam-{{ cam.id }}">
+                                <i class="fa-solid fa-circle" style="font-size: 0.45rem;"></i> Online
+                            </div>
+
+                            <!-- Bottom Right Quick Focus & Zone Action -->
+                            <button type="button" onclick="focusCamera({{ cam.id }})" style="position: absolute; bottom: 10px; right: 10px; background: rgba(15, 23, 42, 0.78); backdrop-filter: blur(8px); color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; border: none; cursor: pointer; display: flex; align-items: center; gap: 5px; z-index: 10;">
+                                <i class="fa-solid fa-sliders"></i> Zone
+                            </button>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div style="grid-column: 1 / -1; padding: 40px 20px; text-align: center; background: #f8fafc; border-radius: 14px; border: 1px dashed var(--border-card);">
+                            <i class="fa-solid fa-video-slash" style="font-size: 2.5rem; color: #94a3b8; margin-bottom: 12px; display: block;"></i>
+                            <h4 style="font-size: 1.1rem; font-weight: 700; color: var(--text-heading); margin-bottom: 6px;">No Surveillance Cameras Connected</h4>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; max-width: 460px; margin: 0 auto 16px;">
+                                Connect your Android phone via IP Webcam app or use your laptop webcam to begin monitoring.
+                            </p>
+                            <button type="button" class="btn btn-primary" onclick="openCameraModal('add')">
+                                <i class="fa-solid fa-plus"></i> Add First Camera
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Single Focus View Container (Hidden by default) -->
+            <div id="focus-view-container" style="display: none; flex-direction: column; gap: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <div>
+                        <h4 id="focus-title" style="font-size: 1.05rem; font-weight: 700; color: var(--text-heading);">Camera Feed</h4>
+                        <span id="focus-location-sub" style="font-size: 0.78rem; color: var(--text-muted);">Interactive Zone Boundary</span>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button type="button" class="btn btn-cyan" onclick="switchViewMode('grid')">
+                            <i class="fa-solid fa-table-cells"></i> Return to Grid
+                        </button>
+                    </div>
+                </div>
+
+                <div style="position: relative; border-radius: 14px; overflow: hidden; background: #000;">
+                    <img src="/video_feed" alt="Focused Live Feed" id="focus-stream-img" style="width: 100%; display: block; aspect-ratio: 16/9; object-fit: contain;">
+                    <canvas id="focus-zone-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></canvas>
+                    <div id="focus-draw-prompt" style="display: none; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); background: #ffffff; color: var(--accent-red); padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; box-shadow: var(--shadow-card); pointer-events: none; z-index: 20;">
+                        <i class="fa-solid fa-crosshairs"></i> Drag on video to set boundary
+                    </div>
+                </div>
+
+                <!-- Zone Buttons -->
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px;">
+                    <button type="button" class="btn zone-btn" data-zone="right" onclick="setFocusedCameraZone('right')">Right Sector</button>
+                    <button type="button" class="btn zone-btn" data-zone="left" onclick="setFocusedCameraZone('left')">Left Sector</button>
+                    <button type="button" class="btn zone-btn" data-zone="center" onclick="setFocusedCameraZone('center')">Center Box</button>
+                    <button type="button" class="btn zone-btn" data-zone="corridor" onclick="setFocusedCameraZone('corridor')">Corridor</button>
+                    <button type="button" class="btn zone-btn" id="btn-draw-focus-zone" onclick="toggleFocusDrawMode()" style="color: var(--primary-blue);">
+                        <i class="fa-solid fa-pen-ruler"></i> Draw Zone
+                    </button>
+                    <button type="button" class="btn zone-btn" data-zone="off" onclick="setFocusedCameraZone('off')" style="color: #ef4444;">Disable</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Recent Alerts & Quick Actions -->
+        <div style="display: flex; flex-direction: column; gap: 1.4rem;">
+            
+            <!-- 1. Recent Alerts Card -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h3><i class="fa-solid fa-bell" style="color: var(--accent-red);"></i> Recent Alerts</h3>
+                    <a href="{% url 'logs_dashboard' %}" class="view-all-link" style="color: var(--accent-red-dark);">
+                        View All <i class="fa-solid fa-arrow-right"></i>
+                    </a>
+                </div>
+
+                <div class="alerts-list">
+                    {% if recent_alerts %}
+                        {% for alert in recent_alerts %}
+                        <div class="alert-item {% if alert.severity == 'CRITICAL' or 'WEAPON' in alert.threat_type %}alert-critical{% else %}alert-warning{% endif %}" {% if alert.snapshot %}onclick="openEvidenceLightbox('{{ alert.snapshot.url }}', '{{ alert.threat_type }} - {{ alert.camera.name|default:alert.source|escapejs }}', '{{ alert.timestamp|date:'Y-m-d H:i:s' }}', '{{ alert.threat_type }}')" style="cursor: pointer;"{% endif %}>
+                            {% if alert.snapshot %}
+                                <div class="alert-snapshot-thumb" title="Click to inspect snapshot evidence">
+                                    <img src="{{ alert.snapshot.url }}" alt="Alert Evidence">
+                                </div>
+                            {% else %}
+                                <div class="alert-thumbnail">
+                                    {% if 'WEAPON' in alert.threat_type %}
+                                        <i class="fa-solid fa-gun" style="color: var(--accent-red);"></i>
+                                    {% else %}
+                                        <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-red);"></i>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                            <div class="alert-details">
+                                <strong class="alert-headline" style="color: {% if 'WEAPON' in alert.threat_type or alert.severity == 'CRITICAL' %}var(--accent-red-dark){% else %}var(--text-heading){% endif %};">
+                                    {% if 'WEAPON' in alert.threat_type %}
+                                        Weapon Detected
+                                    {% elif 'INTRUSION' in alert.threat_type %}
+                                        Intrusion Detected
+                                    {% else %}
+                                        Security Alert
+                                    {% endif %}
+                                </strong>
+                                <div class="alert-meta">
+                                    {{ alert.camera.name|default:alert.source }} &bull; {{ alert.timestamp|date:"h:i A" }}
+                                </div>
+                            </div>
+                            <span class="pill-badge {% if alert.severity == 'CRITICAL' or 'WEAPON' in alert.threat_type %}badge-critical{% else %}badge-warning{% endif %}">
+                                {{ alert.severity|default:"Critical"|title }}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div style="padding: 24px 10px; text-align: center; color: var(--text-muted); font-size: 0.82rem;">
+                            <i class="fa-solid fa-circle-check" style="color: var(--accent-green); font-size: 1.5rem; margin-bottom: 6px; display: block;"></i>
+                            All Camera Sectors Secure
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 2. Quick Actions Card -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h3><i class="fa-solid fa-bolt" style="color: var(--primary-blue);"></i> Quick Actions</h3>
+                </div>
+
+                <div class="quick-actions-grid">
+                    <!-- Action 1: Add Camera -->
+                    <button type="button" class="quick-action-tile" onclick="openCameraModal('add')">
+                        <div class="action-icon-circle blue-circle">
+                            <i class="fa-solid fa-video"></i>
+                        </div>
+                        <span>Add Camera</span>
+                    </button>
+
+                    <!-- Action 2: View Live -->
+                    <button type="button" class="quick-action-tile" onclick="switchViewMode(currentViewMode === 'grid' ? 'focus' : 'grid')">
+                        <div class="action-icon-circle blue-circle">
+                            <i class="fa-solid fa-play"></i>
+                        </div>
+                        <span>View Live</span>
+                    </button>
+
+                    <!-- Action 3: Upload Video -->
+                    <button type="button" class="quick-action-tile" onclick="window.location.href='{% url 'upload_dashboard' %}'">
+                        <div class="action-icon-circle blue-circle">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                        </div>
+                        <span>Upload Video</span>
+                    </button>
+
+                    <!-- Action 4: Settings / Grid Config -->
+                    <button type="button" class="quick-action-tile" onclick="openCameraModal('list')">
+                        <div class="action-icon-circle blue-circle">
+                            <i class="fa-solid fa-gear"></i>
+                        </div>
+                        <span>Settings</span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 4. Bottom Row: Threat Analytics (Line Chart) + Event Breakdown (Donut) + Recent Incident Logs -->
+    <div class="bottom-analytics-grid">
+        
+        <!-- Bottom Left: Threat Analytics (Dual Line Chart with Time Range Filter) -->
+        <div class="panel">
+            <div class="panel-header">
+                <h3><i class="fa-solid fa-chart-line" style="color: var(--primary-blue);"></i> Threat Analytics</h3>
+                <!-- Time Range Tabs: 1h, 24h, 7d, 30d -->
+                <div class="subtle-segmented-control">
+                    <button type="button" class="seg-btn active" onclick="setAnalyticsRange('1h')">1h</button>
+                    <button type="button" class="seg-btn" onclick="setAnalyticsRange('24h')">24h</button>
+                    <button type="button" class="seg-btn" onclick="setAnalyticsRange('7d')">7d</button>
+                    <button type="button" class="seg-btn" onclick="setAnalyticsRange('30d')">30d</button>
+                </div>
+            </div>
+            
+            <div style="position: relative; height: 180px; width: 100%;">
+                <canvas id="threatAnalyticsChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Bottom Center: Event Breakdown (Donut Chart) -->
+        <div class="panel" style="display: flex; flex-direction: column;">
+            <div class="panel-header">
+                <h3><i class="fa-solid fa-chart-pie" style="color: var(--primary-blue);"></i> Event Breakdown</h3>
+            </div>
+            <div style="flex: 1; position: relative; min-height: 180px; display: flex; align-items: center; justify-content: center;">
+                <canvas id="eventBreakdownChart" style="max-height: 160px; max-width: 160px;"></canvas>
+                <!-- Center Total Text -->
+                <div class="donut-center-label">
+                    <span id="donut-total-count" style="font-size: 1.25rem; font-weight: 800; color: var(--text-heading); display: block;">32</span>
+                    <span style="font-size: 0.68rem; color: var(--text-muted); font-weight: 600;">Total Events</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Right: Recent Incident Logs -->
+        <div class="panel">
+            <div class="panel-header">
+                <h3><i class="fa-solid fa-file-shield" style="color: var(--primary-blue);"></i> Recent Incident Logs</h3>
+                <a href="{% url 'logs_dashboard' %}" class="view-all-link">
+                    View All <i class="fa-solid fa-arrow-right"></i>
+                </a>
+            </div>
+
+            <div class="incident-logs-list">
+                {% if recent_incidents %}
+                    {% for inc in recent_incidents %}
+                    <div class="incident-row" {% if inc.snapshot %}onclick="openEvidenceLightbox('{{ inc.snapshot.url }}', '{{ inc.threat_type }} - {{ inc.camera.name|default:inc.source|escapejs }}', '{{ inc.timestamp|date:'Y-m-d H:i:s' }}', '{{ inc.threat_type }}')" title="Click to view evidence snapshot"{% else %}onclick="window.location.href='{% url 'logs_dashboard' %}'"{% endif %} style="cursor: pointer;">
+                        {% if inc.snapshot %}
+                            <div class="incident-snapshot-thumb" title="Click to inspect snapshot evidence">
+                                <img src="{{ inc.snapshot.url }}" alt="Snapshot">
+                            </div>
+                        {% else %}
+                            <div class="incident-thumb">
+                                {% if 'WEAPON' in inc.threat_type %}
+                                    <i class="fa-solid fa-gun" style="color: var(--accent-red);"></i>
+                                {% elif 'INTRUSION' in inc.threat_type %}
+                                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-red);"></i>
+                                {% else %}
+                                    <i class="fa-solid fa-user-shield" style="color: var(--primary-blue);"></i>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                        <div class="incident-info">
+                            <strong>
+                                {% if 'INTRUSION' in inc.threat_type %}
+                                    Intrusion detected in {{ inc.camera.name|default:inc.source }}
+                                {% elif 'WEAPON' in inc.threat_type %}
+                                    Weapon detected in {{ inc.camera.name|default:inc.source }}
+                                {% else %}
+                                    Security breach in {{ inc.camera.name|default:inc.source }}
+                                {% endif %}
+                            </strong>
+                            <div class="incident-time">
+                                <span class="dot-indicator {% if inc.severity == 'CRITICAL' or 'WEAPON' in inc.threat_type %}red-dot{% elif 'INTRUSION' in inc.threat_type %}orange-dot{% else %}green-dot{% endif %}"></span>
+                                {{ inc.timestamp|date:"h:i A" }} &bull; {{ inc.severity|default:"Critical"|title }}
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right chevron-icon"></i>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div style="padding: 24px 10px; text-align: center; color: var(--text-muted); font-size: 0.82rem;">
+                        <i class="fa-solid fa-shield-halved" style="color: var(--accent-green); font-size: 1.5rem; margin-bottom: 6px; display: block;"></i>
+                        No incident logs recorded &bull; All clear
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
 
 </div>
+
+<!-- Specific Styles for Dashboard Page -->
+<style>
+    /* Hero Banner with Modern Skyline Motif */
+    .hero-banner {
+        background: linear-gradient(135deg, #eef5ff 0%, #dbeafe 100%);
+        border: 1px solid #bfdbfe;
+        border-radius: 20px;
+        padding: 1.5rem 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(37, 99, 235, 0.04);
+    }
+
+    .hero-content {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        z-index: 2;
+    }
+
+    .hero-shield-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        background: var(--primary-blue-gradient);
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        box-shadow: var(--primary-blue-glow);
+    }
+
+    .hero-title {
+        font-family: var(--font-display);
+        font-size: 1.45rem;
+        font-weight: 800;
+        color: #0f172a;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+    }
+
+    .hero-subtitle {
+        color: #64748b;
+        font-size: 0.88rem;
+        font-weight: 500;
+        margin-top: 3px;
+    }
+
+    .hero-cctv-graphic {
+        position: relative;
+        width: 80px;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.85;
+    }
+
+    .cctv-lens-ring {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.15), inset 0 2px 4px rgba(255, 255, 255, 0.8);
+        border: 4px solid #3b82f6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .cctv-lens-pupil {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #0f172a;
+        box-shadow: inset 0 0 8px #000;
+        position: relative;
+    }
+
+    .cctv-lens-pupil::after {
+        content: '';
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #38bdf8;
+    }
+
+    /* 4 Metric Cards Grid */
+    .stats-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1.2rem;
+    }
+
+    @media (max-width: 1100px) {
+        .stats-cards-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 600px) {
+        .stats-cards-grid { grid-template-columns: 1fr; }
+    }
+
+    .stat-card {
+        background: #ffffff;
+        border: 1px solid var(--border-card);
+        border-radius: 18px;
+        padding: 1.2rem 1.4rem 0.5rem 1.4rem;
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--shadow-card);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 105px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-card-hover);
+    }
+
+    .stat-card-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        z-index: 2;
+    }
+
+    .stat-icon-circle {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+
+    .blue-circle { background: #eff6ff; color: var(--primary-blue); }
+    .purple-circle { background: #f5f3ff; color: var(--accent-purple); }
+    .red-circle { background: #fef2f2; color: var(--accent-red); }
+    .green-circle { background: #ecfdf5; color: var(--accent-green); }
+
+    .stat-number {
+        font-family: var(--font-display);
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: var(--text-heading);
+        line-height: 1.1;
+    }
+
+    .stat-label {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-top: 2px;
+    }
+
+    .stat-trend-badge {
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+    }
+
+    .green-badge { background: #ecfdf5; color: #059669; }
+    .red-badge { background: #fef2f2; color: #dc2626; }
+
+    .stat-wave {
+        width: 100%;
+        height: 38px;
+        margin-top: 6px;
+        margin-left: -1.4rem;
+        margin-right: -1.4rem;
+        width: calc(100% + 2.8rem);
+        display: block;
+        z-index: 1;
+    }
+
+    /* Middle Layout Grid: 65% / 35% */
+    .middle-layout-grid {
+        display: grid;
+        grid-template-columns: 63fr 37fr;
+        gap: 1.4rem;
+    }
+
+    @media (max-width: 1100px) {
+        .middle-layout-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Alerts List */
+    .alerts-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .alert-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        border-radius: 12px;
+        border: 1px solid var(--border-card);
+        background: #ffffff;
+        transition: transform 0.2s;
+    }
+
+    .alert-item:hover {
+        transform: translateX(2px);
+    }
+
+    .alert-critical {
+        background: #fff5f5;
+        border-color: #fecaca;
+    }
+
+    .alert-thumbnail {
+        width: 44px;
+        height: 36px;
+        border-radius: 8px;
+        background: #fee2e2;
+        border: 1px solid #fca5a5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        flex-shrink: 0;
+    }
+
+    .alert-snapshot-thumb {
+        width: 48px;
+        height: 38px;
+        border-radius: 8px;
+        overflow: hidden;
+        flex-shrink: 0;
+        border: 1px solid var(--border-card);
+        background: #0f172a;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .alert-snapshot-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        transition: transform 0.25s ease;
+    }
+
+    .alert-item:hover .alert-snapshot-thumb img {
+        transform: scale(1.08);
+    }
+
+    .alert-thumbnail-circle {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.95rem;
+        flex-shrink: 0;
+    }
+
+    .alert-details {
+        flex: 1;
+    }
+
+    .alert-headline {
+        font-size: 0.88rem;
+        font-weight: 700;
+        display: block;
+        line-height: 1.2;
+    }
+
+    .alert-meta {
+        font-size: 0.74rem;
+        color: var(--text-muted);
+        margin-top: 2px;
+    }
+
+    .pill-badge {
+        padding: 3px 10px;
+        border-radius: 8px;
+        font-size: 0.72rem;
+        font-weight: 700;
+    }
+
+    .badge-critical {
+        background: #ef4444;
+        color: #ffffff;
+    }
+
+    .badge-warning {
+        background: #eff6ff;
+        color: #2563eb;
+        border: 1px solid #bfdbfe;
+    }
+
+    .badge-info {
+        background: #ecfdf5;
+        color: #059669;
+        border: 1px solid #a7f3d0;
+    }
+
+    /* Quick Actions 4x Tiles */
+    .quick-actions-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+    }
+
+    .quick-action-tile {
+        background: #ffffff;
+        border: 1px solid var(--border-card);
+        border-radius: 14px;
+        padding: 14px 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .quick-action-tile:hover {
+        border-color: var(--primary-blue-border);
+        background: #eff6ff;
+        transform: translateY(-2px);
+    }
+
+    .action-icon-circle {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+    }
+
+    .quick-action-tile span {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-heading);
+    }
+
+    /* Subtle Segmented Controls */
+    .subtle-segmented-control {
+        display: inline-flex;
+        background: #f1f5f9;
+        border-radius: 10px;
+        padding: 3px;
+        gap: 3px;
+    }
+
+    .seg-btn {
+        padding: 4px 12px;
+        border-radius: 8px;
+        border: none;
+        background: transparent;
+        font-size: 0.76rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .seg-btn.active {
+        background: #ffffff;
+        color: var(--primary-blue);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Bottom Analytics 3-Columns Grid */
+    .bottom-analytics-grid {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr 1.3fr;
+        gap: 1.4rem;
+    }
+
+    @media (max-width: 1100px) {
+        .bottom-analytics-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Donut Center Label */
+    .donut-center-label {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        pointer-events: none;
+    }
+
+    /* Incident Logs List */
+    .incident-logs-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .incident-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: #f8fafc;
+        border: 1px solid var(--border-card);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .incident-row:hover {
+        background: #eff6ff;
+        border-color: #bfdbfe;
+        transform: translateX(2px);
+    }
+
+    .incident-thumb {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: #ffffff;
+        border: 1px solid var(--border-card);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.95rem;
+        flex-shrink: 0;
+    }
+
+    .incident-snapshot-thumb {
+        width: 48px;
+        height: 38px;
+        border-radius: 8px;
+        overflow: hidden;
+        flex-shrink: 0;
+        border: 1px solid var(--border-card);
+        background: #0f172a;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .incident-snapshot-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        transition: transform 0.25s ease;
+    }
+
+    .incident-row:hover .incident-snapshot-thumb img {
+        transform: scale(1.08);
+    }
+
+    .incident-info {
+        flex: 1;
+    }
+
+    .incident-info strong {
+        font-size: 0.84rem;
+        color: var(--text-heading);
+        display: block;
+    }
+
+    .incident-time {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-top: 2px;
+    }
+
+    .dot-indicator {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+    }
+    .red-dot { background: #ef4444; }
+    .orange-dot { background: #f59e0b; }
+    .green-dot { background: #10b981; }
+
+    .chevron-icon {
+        color: #94a3b8;
+        font-size: 0.8rem;
+    }
+</style>
 {% endblock %}
 
 {% block extra_scripts %}
-    // --- Multi-Camera State & Logic ---
+    // --- State & Handlers ---
     let currentViewMode = 'grid';
     let focusedCamId = {% if cameras.first %}{{ cameras.first.id }}{% else %}1{% endif %};
     let cameraListState = [];
-    let focusedZoneConfig = { x1: 320, y1: 0, x2: 640, y2: 480 };
-
-    // --- Grid Layout Presets (Auto / 2x2 / Command) ---
-    function setGridPreset(preset) {
-        const grid = document.getElementById('camera-grid');
-        const btnAuto = document.getElementById('layout-auto');
-        const btn2x2 = document.getElementById('layout-2x2');
-        const btnCmd = document.getElementById('layout-1plus3');
-
-        if (!grid) return;
-        grid.classList.remove('layout-2x2', 'layout-1plus3');
-        if (btnAuto) btnAuto.classList.remove('active');
-        if (btn2x2) btn2x2.classList.remove('active');
-        if (btnCmd) btnCmd.classList.remove('active');
-
-        if (preset === '2x2') {
-            grid.classList.add('layout-2x2');
-            if (btn2x2) btn2x2.classList.add('active');
-        } else if (preset === '1plus3') {
-            grid.classList.add('layout-1plus3');
-            if (btnCmd) btnCmd.classList.add('active');
-        } else {
-            if (btnAuto) btnAuto.classList.add('active');
-        }
-    }
+    let threatChartInstance = null;
+    let eventBreakdownInstance = null;
 
     function switchViewMode(mode) {
         currentViewMode = mode;
@@ -418,10 +938,9 @@
             if (focusContainer) focusContainer.style.display = 'none';
             if (btnGrid) btnGrid.classList.add('active');
             if (btnFocus) btnFocus.classList.remove('active');
-            updatePillActive('pill-all');
         } else {
             if (gridContainer) gridContainer.style.display = 'none';
-            if (focusContainer) focusContainer.style.display = 'block';
+            if (focusContainer) focusContainer.style.display = 'flex';
             if (btnFocus) btnFocus.classList.add('active');
             if (btnGrid) btnGrid.classList.remove('active');
             updateFocusView(focusedCamId);
@@ -434,22 +953,7 @@
         updateFocusView(camId);
     }
 
-    function updatePillActive(pillId) {
-        document.querySelectorAll('#camera-pills-bar .btn').forEach(btn => {
-            btn.style.background = 'transparent';
-            btn.style.borderColor = 'var(--panel-border)';
-            btn.style.color = 'var(--text-main)';
-        });
-        const active = document.getElementById(pillId);
-        if (active) {
-            active.style.background = 'rgba(0, 240, 255, 0.15)';
-            active.style.borderColor = 'var(--cyan-neon)';
-            active.style.color = 'var(--cyan-neon)';
-        }
-    }
-
     function updateFocusView(camId) {
-        updatePillActive(`pill-cam-${camId}`);
         const streamImg = document.getElementById('focus-stream-img');
         if (streamImg) streamImg.src = `/video_feed/${camId}/`;
 
@@ -457,28 +961,12 @@
         if (camObj) {
             const titleEl = document.getElementById('focus-title');
             const locEl = document.getElementById('focus-location-sub');
-            const nameEl = document.getElementById('focus-info-name');
-            const typeEl = document.getElementById('focus-info-type');
-            const urlEl = document.getElementById('focus-info-url');
-            const statusEl = document.getElementById('focus-info-status');
-
-            if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-video" style="color: var(--cyan-neon);"></i> ${camObj.name}`;
-            if (locEl) locEl.innerText = `${camObj.location || 'Local Surveillance Sector'} &bull; ${camObj.camera_type}`;
-            if (nameEl) nameEl.innerText = camObj.name;
-            if (typeEl) typeEl.innerText = camObj.camera_type;
-            if (urlEl) urlEl.innerText = camObj.stream_url;
-            if (statusEl) statusEl.innerText = camObj.status;
-
-            if (camObj.zone_mode) {
-                updateFocusZoneUI(camObj.zone_mode);
-            }
-            if (camObj.zone_config) {
-                syncFocusSlidersUI(camObj.zone_config);
-            }
+            if (titleEl) titleEl.innerText = camObj.name;
+            if (locEl) locEl.innerText = `${camObj.location || 'Surveillance Sector'} • ${camObj.camera_type}`;
         }
     }
 
-    // --- Focused Camera Zone Management ---
+    // --- Interactive Zone Management on Focused Cam ---
     async function setFocusedCameraZone(zoneName) {
         try {
             let formData = new FormData();
@@ -490,373 +978,69 @@
                 body: formData
             });
             if (res.ok) {
-                updateFocusZoneUI(zoneName);
-                const toast = document.getElementById('focus-save-toast');
-                if (toast) {
-                    toast.style.display = 'block';
-                    setTimeout(() => { toast.style.display = 'none'; }, 2000);
-                }
+                alert(`Perimeter zone updated to: ${zoneName.toUpperCase()}`);
             }
         } catch (e) {
             console.error(e);
         }
     }
-
-    function updateFocusZoneUI(zoneName) {
-        document.querySelectorAll('.zone-btn').forEach(btn => {
-            if (btn.getAttribute('data-zone') === zoneName) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
-        });
-        const pill = document.getElementById('focus-zone-active-pill');
-        if (pill) {
-            if (zoneName === 'off') {
-                pill.innerText = 'ZONE DISABLED';
-                pill.style.color = 'var(--text-dim)';
-                pill.style.background = 'transparent';
-                pill.style.borderColor = 'var(--panel-border)';
-            } else if (zoneName === 'custom') {
-                pill.innerText = 'CUSTOM BOUNDARY';
-                pill.style.color = 'var(--cyan-neon)';
-                pill.style.background = 'rgba(0, 240, 255, 0.15)';
-                pill.style.borderColor = 'rgba(0, 240, 255, 0.4)';
-            } else {
-                pill.innerText = zoneName.toUpperCase() + ' SECTOR';
-                pill.style.color = 'var(--crimson-neon)';
-                pill.style.background = 'rgba(255, 23, 68, 0.15)';
-                pill.style.borderColor = 'rgba(255, 23, 68, 0.35)';
-            }
-        }
-    }
-
-    // --- Interactive Canvas Drag on Video ---
-    let isFocusDrawMode = false;
-    let isFocusDrawing = false;
-    let fStartX = 0, fStartY = 0;
-    const fCanvas = document.getElementById('focus-zone-canvas');
-    const fCtx = fCanvas ? fCanvas.getContext('2d') : null;
-    const fWrapper = document.getElementById('focus-feed-wrapper');
-    const fDrawPrompt = document.getElementById('focus-draw-prompt');
-    const fBtnDrawZone = document.getElementById('btn-draw-focus-zone');
 
     function toggleFocusDrawMode() {
-        isFocusDrawMode = !isFocusDrawMode;
-        if (isFocusDrawMode) {
-            if (fCanvas) {
-                fCanvas.style.pointerEvents = 'auto';
-                fCanvas.style.cursor = 'crosshair';
-            }
-            if (fDrawPrompt) fDrawPrompt.style.display = 'block';
-            if (fBtnDrawZone) {
-                fBtnDrawZone.classList.add('active');
-                fBtnDrawZone.style.background = 'rgba(255, 23, 68, 0.2)';
-                fBtnDrawZone.style.borderColor = 'var(--crimson-neon)';
-                fBtnDrawZone.style.color = '#ff809b';
-            }
-            resizeFocusCanvas();
-        } else {
-            exitFocusDrawMode();
+        const prompt = document.getElementById('focus-draw-prompt');
+        if (prompt) {
+            prompt.style.display = prompt.style.display === 'none' ? 'block' : 'none';
         }
     }
 
-    function exitFocusDrawMode() {
-        isFocusDrawMode = false;
-        isFocusDrawing = false;
-        if (fCanvas) {
-            fCanvas.style.pointerEvents = 'none';
-            fCanvas.style.cursor = 'default';
-            if (fCtx) fCtx.clearRect(0, 0, fCanvas.width, fCanvas.height);
-        }
-        if (fDrawPrompt) fDrawPrompt.style.display = 'none';
-        if (fBtnDrawZone) {
-            fBtnDrawZone.classList.remove('active');
-            fBtnDrawZone.style.background = 'rgba(0, 240, 255, 0.08)';
-            fBtnDrawZone.style.borderColor = 'rgba(0, 240, 255, 0.4)';
-            fBtnDrawZone.style.color = 'var(--cyan-neon)';
-        }
-    }
-
-    function resizeFocusCanvas() {
-        if (fCanvas && fWrapper) {
-            fCanvas.width = fWrapper.clientWidth;
-            fCanvas.height = fWrapper.clientHeight;
-        }
-    }
-    window.addEventListener('resize', resizeFocusCanvas);
-
-    if (fCanvas) {
-        fCanvas.addEventListener('mousedown', (e) => {
-            if (!isFocusDrawMode) return;
-            isFocusDrawing = true;
-            const rect = fCanvas.getBoundingClientRect();
-            fStartX = e.clientX - rect.left;
-            fStartY = e.clientY - rect.top;
-        });
-
-        fCanvas.addEventListener('mousemove', (e) => {
-            if (!isFocusDrawing || !isFocusDrawMode) return;
-            const rect = fCanvas.getBoundingClientRect();
-            const curX = e.clientX - rect.left;
-            const curY = e.clientY - rect.top;
-
-            fCtx.clearRect(0, 0, fCanvas.width, fCanvas.height);
-            fCtx.strokeStyle = '#00f0ff';
-            fCtx.lineWidth = 2;
-            fCtx.setLineDash([6, 4]);
-            fCtx.fillStyle = 'rgba(0, 240, 255, 0.2)';
-
-            const w = curX - fStartX;
-            const h = curY - fStartY;
-            fCtx.fillRect(fStartX, fStartY, w, h);
-            fCtx.strokeRect(fStartX, fStartY, w, h);
-        });
-
-        fCanvas.addEventListener('mouseup', async (e) => {
-            if (!isFocusDrawing || !isFocusDrawMode) return;
-            isFocusDrawing = false;
-            const rect = fCanvas.getBoundingClientRect();
-            const endX = e.clientX - rect.left;
-            const endY = e.clientY - rect.top;
-
-            const scaleX = 640 / fCanvas.width;
-            const scaleY = 480 / fCanvas.height;
-
-            const x1 = Math.round(Math.min(fStartX, endX) * scaleX);
-            const x2 = Math.round(Math.max(fStartX, endX) * scaleX);
-            const y1 = Math.round(Math.min(fStartY, endY) * scaleY);
-            const y2 = Math.round(Math.max(fStartY, endY) * scaleY);
-
-            if (x2 - x1 > 15 && y2 - y1 > 15) {
-                await saveFocusCustomBoundary(x1, y1, x2, y2);
-            }
-            exitFocusDrawMode();
-        });
-    }
-
-    function toggleFocusSliders() {
-        const p = document.getElementById('focus-sliders-panel');
-        if (p) p.style.display = p.style.display === 'none' ? 'block' : 'none';
-    }
-
-    function onFocusSliderChange() {
-        let x1 = parseInt(document.getElementById('focus-slider-x1').value);
-        let x2 = parseInt(document.getElementById('focus-slider-x2').value);
-        let y1 = parseInt(document.getElementById('focus-slider-y1').value);
-        let y2 = parseInt(document.getElementById('focus-slider-y2').value);
-
-        if (x1 > x2) { let t = x1; x1 = x2; x2 = t; }
-        if (y1 > y2) { let t = y1; y1 = y2; y2 = t; }
-
-        document.getElementById('focus-val-x1').innerText = x1;
-        document.getElementById('focus-val-x2').innerText = x2;
-        document.getElementById('focus-val-y1').innerText = y1;
-        document.getElementById('focus-val-y2').innerText = y2;
-        document.getElementById('focus-extent-display').innerText = `${x1}, ${y1}, ${x2}, ${y2}`;
-    }
-
-    async function saveFocusCustomSliders() {
-        let x1 = parseInt(document.getElementById('focus-slider-x1').value);
-        let x2 = parseInt(document.getElementById('focus-slider-x2').value);
-        let y1 = parseInt(document.getElementById('focus-slider-y1').value);
-        let y2 = parseInt(document.getElementById('focus-slider-y2').value);
-        await saveFocusCustomBoundary(x1, y1, x2, y2);
-    }
-
-    async function saveFocusCustomBoundary(x1, y1, x2, y2) {
-        try {
-            let formData = new FormData();
-            formData.append('zone', 'custom');
-            formData.append('x1', x1);
-            formData.append('y1', y1);
-            formData.append('x2', x2);
-            formData.append('y2', y2);
-
-            const res = await fetch(`/api/cameras/${focusedCamId}/set-zone`, {
-                method: 'POST',
-                headers: { 'X-CSRFToken': csrfToken },
-                body: formData
-            });
-            if (res.ok) {
-                const data = await res.json();
-                updateFocusZoneUI('custom');
-                syncFocusSlidersUI(data.zone_config);
-
-                const toast = document.getElementById('focus-save-toast');
-                if (toast) {
-                    toast.style.display = 'block';
-                    setTimeout(() => { toast.style.display = 'none'; }, 2000);
-                }
-            }
-        } catch (e) {
-            console.error("Save custom error:", e);
-        }
-    }
-
-    function syncFocusSlidersUI(box) {
-        if (!box) return;
-        const sX1 = document.getElementById('focus-slider-x1');
-        const sX2 = document.getElementById('focus-slider-x2');
-        const sY1 = document.getElementById('focus-slider-y1');
-        const sY2 = document.getElementById('focus-slider-y2');
-        if (sX1) sX1.value = box.x1;
-        if (sX2) sX2.value = box.x2;
-        if (sY1) sY1.value = box.y1;
-        if (sY2) sY2.value = box.y2;
-        const vX1 = document.getElementById('focus-val-x1');
-        const vX2 = document.getElementById('focus-val-x2');
-        const vY1 = document.getElementById('focus-val-y1');
-        const vY2 = document.getElementById('focus-val-y2');
-        if (vX1) vX1.innerText = box.x1;
-        if (vX2) vX2.innerText = box.x2;
-        if (vY1) vY1.innerText = box.y1;
-        if (vY2) vY2.innerText = box.y2;
-        const ext = document.getElementById('focus-extent-display');
-        if (ext) ext.innerText = `${box.x1}, ${box.y1}, ${box.x2}, ${box.y2}`;
-    }
-
-    async function toggleCurrentFocusedCamera() {
-        try {
-            let formData = new FormData();
-            formData.append('action', 'toggle');
-            await fetch(`/api/cameras/${focusedCamId}/toggle`, {
-                method: 'POST',
-                headers: { 'X-CSRFToken': csrfToken },
-                body: formData
-            });
-            fetchStats();
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    // --- Real-Time Grid & SOC Telemetry Polling ---
+    // --- Real-time Polling for Metrics and Alert States ---
     async function fetchStats() {
         try {
             const res = await fetch('/api/stats');
             if (!res.ok) return;
             const data = await res.json();
-            cameraListState = data.cameras || [];
 
-            // 1. Top row stats
-            const onlineEl = document.getElementById('stat-cams-online');
-            const totalEl = document.getElementById('stat-cams-total');
-            const pEl = document.getElementById('stat-people');
-            const iEl = document.getElementById('stat-intruders');
-            const wEl = document.getElementById('stat-weapons');
-            const sysEl = document.getElementById('stat-sys');
+            // 1. Update People & Threats Metrics
+            const peopleEl = document.getElementById('stat-people');
+            const threatsEl = document.getElementById('stat-threats');
+            const camsOnlineEl = document.getElementById('stat-cams-online');
 
-            if (onlineEl) onlineEl.innerText = data.online_cameras;
-            if (totalEl && data.total_cameras !== undefined) totalEl.innerText = data.total_cameras;
-            if (pEl) pEl.innerText = data.total_persons;
-            if (iEl) iEl.innerText = data.total_intruders;
-            if (wEl) wEl.innerText = data.total_weapons;
-            if (sysEl) sysEl.innerText = data.status;
+            if (peopleEl) peopleEl.innerText = data.total_persons !== undefined ? data.total_persons : (data.person_count || 0);
+            
+            const weapons = data.total_weapons || 0;
+            const intruders = data.total_intruders || 0;
+            const totalThreats = weapons + intruders;
+            if (threatsEl) threatsEl.innerText = totalThreats;
 
-            // Camera status dot
-            const camsDot = document.getElementById('cams-dot');
-            if (camsDot) {
-                camsDot.className = data.online_cameras > 0 ? "status-dot online" : "status-dot offline";
-            }
-
-            // Global DEFCON badge updater
-            updateDEFCONBadge(data.total_weapons || 0, data.total_intruders || 0);
-
-            // Top alert banner
-            const banner = document.getElementById('system-alert-banner');
-            const alertBadge = document.getElementById('alert-badge');
-            const alertTitle = document.getElementById('alert-title');
-            const alertMsg = document.getElementById('alert-message');
-            const alertIcon = document.getElementById('alert-icon');
-            const intruderBox = document.getElementById('intruder-stat-box');
-            const weaponBox = document.getElementById('weapon-stat-box');
-
-            if (data.alert_active) {
-                if (banner) banner.style.display = 'flex';
-
-                if (data.total_weapons > 0) {
-                    playThreatAlarm('weapon');
-                    if (alertIcon) alertIcon.className = "fa-solid fa-gun fa-beat-fade";
-                    if (alertTitle) alertTitle.innerText = `CRITICAL WEAPON THREAT (${data.total_weapons} FOUND):`;
-                    if (alertMsg) alertMsg.innerText = "Armed threat detected on surveillance grid! Evidence snapshot logged.";
-                    if (alertBadge) {
-                        alertBadge.innerText = "WEAPON ALERT";
-                        alertBadge.style.background = "rgba(255, 23, 68, 0.9)";
-                    }
-                } else {
-                    playThreatAlarm('breach');
-                    if (alertIcon) alertIcon.className = "fa-solid fa-triangle-exclamation fa-beat-fade";
-                    if (alertTitle) alertTitle.innerText = `PERIMETER BREACH (${data.total_intruders} INTRUDERS):`;
-                    if (alertMsg) alertMsg.innerText = "Unauthorized intrusion detected inside restricted perimeter!";
-                    if (alertBadge) {
-                        alertBadge.innerText = "BREACH ACTIVE";
-                        alertBadge.style.background = "rgba(220, 38, 38, 0.85)";
-                    }
-                }
-
-                if (intruderBox && data.total_intruders > 0) {
-                    intruderBox.style.borderColor = 'var(--crimson-neon)';
-                    intruderBox.style.boxShadow = '0 0 20px rgba(255, 23, 68, 0.45)';
-                }
-                if (weaponBox && data.total_weapons > 0) {
-                    weaponBox.style.borderColor = 'var(--amber-neon)';
-                    weaponBox.style.boxShadow = '0 0 20px rgba(245, 158, 11, 0.45)';
-                }
-            } else {
-                if (banner) banner.style.display = 'none';
-                if (intruderBox) {
-                    intruderBox.style.borderColor = 'var(--panel-border)';
-                    intruderBox.style.boxShadow = 'none';
-                }
-                if (weaponBox) {
-                    weaponBox.style.borderColor = 'var(--panel-border)';
-                    weaponBox.style.boxShadow = 'none';
-                }
-            }
-
-            // 2. Per-Camera HUD chip updates in Grid View
             if (data.cameras) {
+                cameraListState = data.cameras;
+                const onlineCount = data.cameras.filter(c => c.status.includes('ONLINE') || c.status.includes('MONITORING') || c.status.includes('ALERT')).length;
+                if (camsOnlineEl) camsOnlineEl.innerText = onlineCount;
+
+                // Update individual camera badges
                 data.cameras.forEach(c => {
-                    const hp = document.getElementById(`hud-people-${c.camera_id}`);
-                    const hi = document.getElementById(`hud-intruders-${c.camera_id}`);
-                    const hw = document.getElementById(`hud-weapons-${c.camera_id}`);
-                    const hz = document.getElementById(`hud-zone-${c.camera_id}`);
-                    const badge = document.getElementById(`badge-cam-${c.camera_id}`);
-                    const tile = document.getElementById(`tile-cam-${c.camera_id}`);
+                    const badge = document.getElementById(`badge-cam-${c.camera_id || c.id}`);
+                    const tile = document.getElementById(`tile-cam-${c.camera_id || c.id}`);
+                    const isThreat = (c.weapon_count > 0) || (c.intruder_count > 0);
 
-                    if (hp) hp.innerText = c.person_count;
-                    if (hi) hi.innerText = c.intruder_count;
-                    if (hw) hw.innerText = c.weapon_count;
-                    if (hz && c.zone_mode) hz.innerText = c.zone_mode.toUpperCase();
-
-                    // Alert outline on specific tile
                     if (tile) {
-                        if (c.weapon_count > 0) {
-                            tile.style.borderColor = 'var(--crimson-neon)';
-                            tile.style.boxShadow = '0 0 25px rgba(255, 23, 68, 0.45)';
-                        } else if (c.intruder_count > 0) {
-                            tile.style.borderColor = 'var(--amber-neon)';
-                            tile.style.boxShadow = '0 0 25px rgba(245, 158, 11, 0.4)';
+                        if (isThreat) {
+                            tile.classList.add('threat-breach');
                         } else {
-                            tile.style.borderColor = 'var(--panel-border)';
-                            tile.style.boxShadow = 'none';
+                            tile.classList.remove('threat-breach');
                         }
                     }
 
                     if (badge) {
-                        if (c.status.includes('ONLINE') || c.status.includes('MONITORING') || c.status.includes('ALERT')) {
-                            badge.innerHTML = `<span class="live-rec-dot"></span> LIVE REC`;
-                            badge.style.color = '#fca5a5';
-                            badge.style.borderColor = 'rgba(255, 23, 68, 0.4)';
-                        } else if (c.status.includes('RECONNECTING')) {
-                            badge.innerHTML = `<span class="live-rec-dot" style="background:#f59e0b; box-shadow:0 0 8px #f59e0b;"></span> RECONNECTING`;
-                            badge.style.color = '#fde68a';
-                            badge.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+                        if (isThreat) {
+                            badge.className = "cam-overlay-status status-alert";
+                            badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Threat Active`;
+                            playThreatAlarm(c.weapon_count > 0 ? 'weapon' : 'breach');
+                        } else if (c.status.includes('ONLINE') || c.status.includes('MONITORING')) {
+                            badge.className = "cam-overlay-status status-online";
+                            badge.innerHTML = `<i class="fa-solid fa-circle" style="font-size: 0.45rem;"></i> Online`;
                         } else {
-                            badge.innerHTML = `<span class="live-rec-dot" style="background:#64748b; box-shadow:none;"></span> OFFLINE`;
-                            badge.style.color = '#94a3b8';
-                            badge.style.borderColor = 'rgba(100, 116, 139, 0.3)';
+                            badge.className = "cam-overlay-status status-offline";
+                            badge.innerHTML = `<i class="fa-solid fa-circle" style="font-size: 0.45rem;"></i> Offline`;
                         }
                     }
                 });
@@ -866,11 +1050,151 @@
         }
     }
 
-    // Refresh hook for modal additions
+    // --- Chart.js Initializations for Bottom Threat Analytics & Event Breakdown ---
+    function initBottomCharts() {
+        Chart.defaults.color = '#64748b';
+        Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+
+        // 1. Dual Line Threat Analytics Chart
+        const lineCtx = document.getElementById('threatAnalyticsChart');
+        if (lineCtx) {
+            threatChartInstance = new Chart(lineCtx, {
+                type: 'line',
+                data: {
+                    labels: ['9:00 AM', '9:15 AM', '9:30 AM', '9:45 AM', '10:00 AM'],
+                    datasets: [
+                        {
+                            label: 'Threats',
+                            data: [3, 2, 4, 3, 5],
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                            borderWidth: 2.5,
+                            pointBackgroundColor: '#ef4444',
+                            pointRadius: 4,
+                            tension: 0.35,
+                            fill: false
+                        },
+                        {
+                            label: 'Detections',
+                            data: [6, 7, 7, 10, 9],
+                            borderColor: '#1d6ff2',
+                            backgroundColor: 'rgba(29, 111, 242, 0.08)',
+                            borderWidth: 2.5,
+                            pointBackgroundColor: '#1d6ff2',
+                            pointRadius: 4,
+                            tension: 0.35,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            align: 'end',
+                            labels: {
+                                boxWidth: 8,
+                                boxHeight: 8,
+                                usePointStyle: true,
+                                font: { size: 11, weight: 600 }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#ffffff',
+                            titleColor: '#0f172a',
+                            bodyColor: '#334155',
+                            borderColor: '#e2e8f0',
+                            borderWidth: 1,
+                            padding: 8
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { size: 10 } }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f1f5f9' },
+                            ticks: { font: { size: 10 }, stepSize: 5 }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 2. Event Breakdown Donut Chart
+        const donutCtx = document.getElementById('eventBreakdownChart');
+        if (donutCtx) {
+            eventBreakdownInstance = new Chart(donutCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['People', 'Intrusion', 'Other'],
+                    datasets: [{
+                        data: [56, 31, 13],
+                        backgroundColor: ['#1d6ff2', '#f59e0b', '#8b5cf6'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '72%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#ffffff',
+                            titleColor: '#0f172a',
+                            bodyColor: '#334155',
+                            borderColor: '#e2e8f0',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    return ` ${context.label}: ${context.raw}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    function setAnalyticsRange(range) {
+        document.querySelectorAll('.subtle-segmented-control .seg-btn').forEach(b => b.classList.remove('active'));
+        if (event && event.target) event.target.classList.add('active');
+
+        if (threatChartInstance) {
+            if (range === '1h') {
+                threatChartInstance.data.labels = ['9:00 AM', '9:15 AM', '9:30 AM', '9:45 AM', '10:00 AM'];
+                threatChartInstance.data.datasets[0].data = [3, 2, 4, 3, 5];
+                threatChartInstance.data.datasets[1].data = [6, 7, 7, 10, 9];
+            } else if (range === '24h') {
+                threatChartInstance.data.labels = ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'];
+                threatChartInstance.data.datasets[0].data = [1, 0, 8, 4, 12, 6];
+                threatChartInstance.data.datasets[1].data = [4, 2, 19, 15, 28, 14];
+            } else if (range === '7d') {
+                threatChartInstance.data.labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                threatChartInstance.data.datasets[0].data = [12, 19, 8, 15, 22, 10, 14];
+                threatChartInstance.data.datasets[1].data = [45, 52, 38, 60, 72, 40, 48];
+            } else {
+                threatChartInstance.data.labels = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+                threatChartInstance.data.datasets[0].data = [35, 48, 40, 55];
+                threatChartInstance.data.datasets[1].data = [180, 210, 195, 230];
+            }
+            threatChartInstance.update();
+        }
+    }
+
     window.refreshCameraDashboard = function() {
         window.location.reload();
     };
 
     setInterval(fetchStats, 1000);
     fetchStats();
+    initBottomCharts();
 {% endblock %}

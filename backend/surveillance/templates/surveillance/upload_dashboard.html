@@ -1,83 +1,215 @@
 {% extends 'surveillance/base.html' %}
 
-{% block right_panel %}
-<div class="panel">
-    <div class="panel-header" style="margin-bottom: 1.2rem;">
-        <h3 style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700;">
-            <i class="fa-solid fa-cloud-arrow-up" style="color: var(--cyan-neon);"></i> Media Forensic Ingestion
-        </h3>
-    </div>
+{% block main_content %}
+<div style="display: flex; flex-direction: column; gap: 1.4rem;">
+    <!-- Top Header Bar -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; border-bottom: 1px solid var(--border-card); padding-bottom: 1.2rem;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+            <div style="width: 46px; height: 46px; border-radius: 12px; background: var(--primary-blue-gradient); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; box-shadow: var(--primary-blue-glow);">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+            </div>
+            <div>
+                <h2 style="font-family: var(--font-display); font-size: 1.3rem; font-weight: 800; color: var(--text-heading);">
+                    Media Forensic Ingestion
+                </h2>
+                <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; margin-top: 2px;">
+                    Upload Recorded Video or Imagery for Offline Edge AI Threat Scanning
+                </div>
+            </div>
+        </div>
 
-    <!-- Drag & Drop Holographic Ingestion Zone -->
-    <div id="drop-zone" onclick="document.getElementById('file-upload').click()" style="border: 2px dashed rgba(0, 240, 255, 0.35); border-radius: 14px; padding: 24px 16px; text-align: center; cursor: pointer; background: rgba(0, 240, 255, 0.03); transition: all 0.25s; margin-bottom: 1.2rem; position: relative; overflow: hidden;">
-        <div class="cam-scanline" style="opacity: 0.25;"></div>
-        <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.3); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: var(--cyan-neon); font-size: 1.4rem;">
-            <i class="fa-solid fa-file-video"></i>
-        </div>
-        <div style="font-family: var(--font-display); font-size: 0.95rem; font-weight: 600; color: #fff; margin-bottom: 4px;">
-            Drop Media File or Browse
-        </div>
-        <div style="font-size: 0.76rem; color: var(--text-dim); font-family: var(--font-mono);">
-            MP4, AVI, MKV, JPG, PNG &bull; Max 50MB
-        </div>
-        <input type="file" id="file-upload" style="display:none;" accept="image/*,video/*" onchange="uploadFile(this)">
-    </div>
-
-    <!-- File Selection & Status Chip -->
-    <div id="upload-status-box" style="display: none; padding: 12px 14px; border-radius: 10px; background: rgba(6, 11, 24, 0.85); border: 1px solid var(--panel-border); margin-bottom: 1.2rem; font-family: var(--font-mono); font-size: 0.78rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <span style="color: var(--text-dim);">Selected File:</span>
-            <span id="upload-filename" style="color: var(--cyan-neon); font-weight: 600; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">--</span>
-        </div>
-        <!-- Scanning Progress Bar -->
-        <div id="upload-progress-wrapper" style="display: none; width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-top: 8px;">
-            <div id="upload-progress-bar" style="width: 40%; height: 100%; background: var(--gradient-cyber); animation: progressAnim 1.2s infinite ease-in-out;"></div>
-        </div>
-        <div id="upload-status-text" style="color: var(--emerald-neon); font-size: 0.72rem; margin-top: 6px; display: flex; align-items: center; gap: 6px;">
-            <span class="soc-beacon-dot"></span> Ingesting into YOLO11 Core...
+        <div style="display: flex; gap: 10px;">
+            <a href="{% url 'dashboard' %}" class="btn btn-outline" style="padding: 7px 14px; font-size: 0.82rem;">
+                <i class="fa-solid fa-house"></i> Return to Live Grid
+            </a>
         </div>
     </div>
 
-    <style>
-        @keyframes progressAnim {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(250%); }
-        }
-        #drop-zone:hover {
-            border-color: var(--cyan-neon);
-            background: rgba(0, 240, 255, 0.08);
-            box-shadow: 0 0 20px rgba(0, 240, 255, 0.15);
-        }
-    </style>
+    <!-- 2-Column Layout: Video Playback Player (Left) + Upload Controls (Right) -->
+    <div style="display: grid; grid-template-columns: 1.85fr 1fr; gap: 1.4rem;">
+        
+        <!-- Left: Uploaded Media Forensic Player -->
+        <div class="panel" style="display: flex; flex-direction: column; gap: 12px;">
+            <div class="panel-header" style="margin-bottom: 0;">
+                <h3><i class="fa-solid fa-play" style="color: var(--primary-blue);"></i> Forensic Playback Stream</h3>
+                <span class="pill-badge {% if upload_cam %}badge-critical{% endif %}" id="feed-status-badge" style="{% if not upload_cam %}background: #f1f5f9; color: #64748b; font-weight: 600;{% endif %}">
+                    {% if upload_cam %}
+                        <span class="status-dot-pulse"></span> Forensic Stream Active
+                    {% else %}
+                        <i class="fa-solid fa-circle-pause"></i> Standby (Awaiting File)
+                    {% endif %}
+                </span>
+            </div>
+            
+            <!-- Video Canvas / Stream Container -->
+            <div style="position: relative; border-radius: 14px; overflow: hidden; background: #020617; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border-card); box-shadow: var(--shadow-sm);">
+                
+                <!-- Live Ingested MJPEG Stream (Hidden when in standby) -->
+                <img 
+                    src="{% if upload_cam %}/video_feed/{{ upload_cam.id }}/{% endif %}" 
+                    alt="Forensic Feed" 
+                    id="video-stream" 
+                    style="width: 100%; height: 100%; object-fit: contain; {% if not upload_cam %}display: none;{% else %}display: block;{% endif %}"
+                >
+                
+                <!-- Standby Graphic (Shown ONLY when no video is loaded, prevents text collision) -->
+                <div id="standby-container" style="{% if upload_cam %}display: none;{% else %}display: flex;{% endif %} flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2rem; z-index: 5;">
+                    <div style="width: 68px; height: 68px; border-radius: 50%; background: rgba(37, 99, 235, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; color: #60a5fa; font-size: 1.8rem; box-shadow: 0 0 25px rgba(37, 99, 235, 0.25);">
+                        <i class="fa-solid fa-film"></i>
+                    </div>
+                    <h4 style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; color: #ffffff; margin-bottom: 6px;">
+                        No Forensic Media Loaded
+                    </h4>
+                    <p style="color: #94a3b8; font-size: 0.82rem; max-width: 420px; line-height: 1.5; margin-bottom: 1.2rem;">
+                        Upload a recorded video or image on the right panel to initialize fair round-robin YOLO detection on this file.
+                    </p>
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;">
+                        <span class="format-chip">MP4</span>
+                        <span class="format-chip">AVI</span>
+                        <span class="format-chip">MKV</span>
+                        <span class="format-chip">MOV</span>
+                        <span class="format-chip">JPG</span>
+                        <span class="format-chip">PNG</span>
+                    </div>
+                </div>
 
-    <!-- Ingestion Action Controls -->
-    <div style="display: flex; flex-direction: column; gap: 10px;">
-        <button class="btn btn-cyan" onclick="document.getElementById('file-upload').click()" style="width: 100%; padding: 10px; font-weight: 600;">
-            <i class="fa-solid fa-folder-open"></i> Select File for AI Inspection
-        </button>
-        <button class="btn btn-outline" onclick="clearUpload()" style="width: 100%; padding: 10px; font-size: 0.8rem; color: #f87171; border-color: rgba(255,23,68,0.25);">
-            <i class="fa-solid fa-rotate-left"></i> Reset & Return to Live Feed
-        </button>
+            </div>
+
+            <!-- Player Controls & Media Metadata Bar -->
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 4px; font-size: 0.82rem; border-top: 1px solid var(--border-subtle); flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 600; color: var(--text-muted);"><i class="fa-solid fa-file-video" style="color: var(--primary-blue);"></i> Source:</span>
+                    <strong id="player-filename-text" style="color: var(--text-heading); font-size: 0.84rem;">
+                        {% if upload_cam %}{{ upload_cam.name }}{% else %}Standby (None){% endif %}
+                    </strong>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button type="button" class="btn btn-outline" id="btn-replay-stream" onclick="reloadStreamFeed()" style="padding: 5px 12px; font-size: 0.78rem;">
+                        <i class="fa-solid fa-rotate-right"></i> Reload Stream
+                    </button>
+                    <button type="button" class="btn btn-outline" onclick="openTheaterMode(activeUploadCamId, document.getElementById('player-filename-text').innerText)" style="padding: 5px 12px; font-size: 0.78rem;">
+                        <i class="fa-solid fa-expand"></i> Theater
+                    </button>
+                    <button type="button" class="btn btn-outline" onclick="ejectUploadedMedia()" style="padding: 5px 12px; font-size: 0.78rem; color: #ef4444;" title="Eject current file and reset player">
+                        <i class="fa-solid fa-eject"></i> Eject
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Ingestion Terminal & File Selection -->
+        <div class="panel" style="display: flex; flex-direction: column; gap: 1.2rem;">
+            <div class="panel-header" style="margin-bottom: 0;">
+                <h3><i class="fa-solid fa-file-arrow-up" style="color: var(--primary-blue);"></i> Ingestion Terminal</h3>
+            </div>
+
+            <!-- Drag & Drop Upload Zone -->
+            <div id="drop-zone" onclick="document.getElementById('file-upload').click()" style="border: 2px dashed #bfdbfe; border-radius: 16px; padding: 32px 18px; text-align: center; cursor: pointer; background: #f8fafc; transition: all 0.25s; position: relative;">
+                <div style="width: 52px; height: 52px; border-radius: 50%; background: #eff6ff; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: var(--primary-blue); font-size: 1.5rem; transition: transform 0.2s;">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                </div>
+                <div style="font-size: 0.98rem; font-weight: 700; color: var(--text-heading); margin-bottom: 4px;">
+                    Drop Media File or Browse
+                </div>
+                <div style="font-size: 0.76rem; color: var(--text-muted); margin-bottom: 8px;">
+                    Select recorded footage for AI forensic review
+                </div>
+                <span class="pill-badge" style="background: #e0f2fe; color: #0284c7; font-size: 0.7rem; font-weight: 600;">Max Size: 100MB</span>
+                <input type="file" id="file-upload" style="display:none;" accept="image/*,video/*" onchange="uploadFile(this)">
+            </div>
+
+            <!-- File Upload Progress Box -->
+            <div id="upload-status-box" style="display: none; padding: 12px 14px; border-radius: 12px; background: #f8fafc; border: 1px solid var(--border-card); font-size: 0.8rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="color: var(--text-muted); font-weight: 600;">Ingesting File:</span>
+                    <strong id="upload-filename" style="color: var(--primary-blue); max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">--</strong>
+                </div>
+                <!-- Animated Progress Bar -->
+                <div id="upload-progress-wrapper" style="width: 100%; height: 5px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-top: 8px;">
+                    <div id="upload-progress-bar" style="width: 40%; height: 100%; background: var(--primary-blue-gradient); animation: progressAnim 1.2s infinite ease-in-out;"></div>
+                </div>
+                <div id="upload-status-text" style="color: var(--accent-green-dark); font-size: 0.75rem; margin-top: 6px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-spinner fa-spin"></i> Uploading to AI Core...
+                </div>
+            </div>
+
+            <!-- Active AI Inspection Pipeline Badges -->
+            <div style="background: #ffffff; border: 1px solid var(--border-card); border-radius: 14px; padding: 14px;">
+                <span style="font-size: 0.76rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em;">AI Pipeline Capabilities:</span>
+                <div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; color: var(--text-body);">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-circle-check" style="color: var(--accent-green);"></i>
+                        <span>Person Detection (YOLO11 Nano)</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-circle-check" style="color: var(--accent-green);"></i>
+                        <span>Armed Weapon Classification</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-circle-check" style="color: var(--accent-green);"></i>
+                        <span>Perimeter Zone Breach Detection</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: auto;">
+                <button type="button" class="btn btn-primary" onclick="document.getElementById('file-upload').click()" style="padding: 11px;">
+                    <i class="fa-solid fa-folder-open"></i> Select File for AI Inspection
+                </button>
+                <button type="button" class="btn btn-outline" onclick="clearUploadAndExit()" style="padding: 10px; color: #ef4444;">
+                    <i class="fa-solid fa-rotate-left"></i> Reset & Return to Live Grid
+                </button>
+            </div>
+        </div>
+
     </div>
 </div>
+
+<style>
+    @keyframes progressAnim {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(250%); }
+    }
+    #drop-zone:hover {
+        border-color: var(--primary-blue);
+        background: #eff6ff;
+    }
+    #drop-zone:hover div:first-child {
+        transform: scale(1.08);
+    }
+    .format-chip {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #e2e8f0;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-family: var(--font-mono);
+    }
+</style>
 {% endblock %}
 
 {% block extra_scripts %}
+    let activeUploadCamId = {% if upload_cam %}{{ upload_cam.id }}{% else %}null{% endif %};
+
     // Drag & Drop event bindings
     const dropZone = document.getElementById('drop-zone');
     if (dropZone) {
         ['dragenter', 'dragover'].forEach(eventName => {
             dropZone.addEventListener(eventName, (e) => {
                 e.preventDefault();
-                dropZone.style.borderColor = 'var(--cyan-neon)';
-                dropZone.style.background = 'rgba(0, 240, 255, 0.12)';
+                dropZone.style.borderColor = 'var(--primary-blue)';
+                dropZone.style.background = '#eff6ff';
             });
         });
         ['dragleave', 'drop'].forEach(eventName => {
             dropZone.addEventListener(eventName, (e) => {
                 e.preventDefault();
-                dropZone.style.borderColor = 'rgba(0, 240, 255, 0.35)';
-                dropZone.style.background = 'rgba(0, 240, 255, 0.03)';
+                dropZone.style.borderColor = '#bfdbfe';
+                dropZone.style.background = '#f8fafc';
             });
         });
         dropZone.addEventListener('drop', (e) => {
@@ -97,13 +229,15 @@
         
         const statusBox = document.getElementById('upload-status-box');
         const filenameEl = document.getElementById('upload-filename');
-        const progressEl = document.getElementById('upload-progress-wrapper');
         const statusText = document.getElementById('upload-status-text');
+        const standbyContainer = document.getElementById('standby-container');
+        const streamImg = document.getElementById('video-stream');
+        const badge = document.getElementById('feed-status-badge');
+        const filenameText = document.getElementById('player-filename-text');
 
         if (statusBox) statusBox.style.display = 'block';
         if (filenameEl) filenameEl.innerText = file.name;
-        if (progressEl) progressEl.style.display = 'block';
-        if (statusText) statusText.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading to AI Core...';
+        if (statusText) statusText.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Ingesting video into AI Core...';
 
         try {
             let formData = new FormData();
@@ -115,34 +249,91 @@
                 body: formData
             });
 
-            if (res.ok) {
-                if (statusText) statusText.innerHTML = '<i class="fa-solid fa-circle-check" style="color: var(--emerald-neon);"></i> Video Stream Initialized!';
-                // Refresh stream image to trigger feed
-                const streamImg = document.getElementById('video-stream');
-                if (streamImg) streamImg.src = `/video_feed?t=${Date.now()}`;
+            const data = await res.json();
+
+            if (res.ok && data.status === 'success') {
+                activeUploadCamId = data.camera_id;
+                
+                if (statusText) statusText.innerHTML = '<i class="fa-solid fa-circle-check" style="color: var(--accent-green-dark);"></i> File Ingested! Starting Stream...';
+                if (standbyContainer) standbyContainer.style.display = 'none';
+                if (filenameText) filenameText.innerText = file.name;
+                
+                if (badge) {
+                    badge.className = "pill-badge badge-critical";
+                    badge.style.background = "#ef4444";
+                    badge.style.color = "#ffffff";
+                    badge.innerHTML = '<span class="status-dot-pulse"></span> Forensic Stream Active';
+                }
+
+                if (streamImg) {
+                    streamImg.style.display = 'block';
+                    // Point specifically to the uploaded camera feed
+                    streamImg.src = `/video_feed/${data.camera_id}/?t=${Date.now()}`;
+                }
+
+                setTimeout(() => {
+                    if (statusBox) statusBox.style.display = 'none';
+                }, 3000);
             } else {
-                if (statusText) statusText.innerHTML = '<i class="fa-solid fa-circle-xmark" style="color: var(--crimson-neon);"></i> Upload Failed.';
+                if (statusText) statusText.innerHTML = `<i class="fa-solid fa-circle-xmark" style="color: #ef4444;"></i> Ingestion failed: ${data.message || 'Error'}`;
             }
         } catch (e) {
             console.error(e);
-            if (statusText) statusText.innerHTML = `<i class="fa-solid fa-circle-xmark" style="color: var(--crimson-neon);"></i> Error: ${e}`;
+            if (statusText) statusText.innerHTML = `<i class="fa-solid fa-circle-xmark" style="color: #ef4444;"></i> Error: ${e}`;
         }
-        if (progressEl) progressEl.style.display = 'none';
         input.value = '';
     }
 
-    async function clearUpload() {
+    function reloadStreamFeed() {
+        if (!activeUploadCamId) {
+            alert('No media file currently loaded. Please upload a video first.');
+            return;
+        }
+        const streamImg = document.getElementById('video-stream');
+        if (streamImg) {
+            streamImg.src = `/video_feed/${activeUploadCamId}/?t=${Date.now()}`;
+        }
+    }
+
+    async function ejectUploadedMedia() {
         try {
-            let formData = new FormData();
-            formData.append('action', 'off');
-            await fetch('/api/toggle-camera', {
+            await fetch('/api/clear-upload', {
                 method: 'POST',
-                headers: { 'X-CSRFToken': csrfToken },
-                body: formData
+                headers: { 'X-CSRFToken': csrfToken }
+            });
+            activeUploadCamId = null;
+            const streamImg = document.getElementById('video-stream');
+            const standbyContainer = document.getElementById('standby-container');
+            const badge = document.getElementById('feed-status-badge');
+            const filenameText = document.getElementById('player-filename-text');
+
+            if (streamImg) {
+                streamImg.src = '';
+                streamImg.style.display = 'none';
+            }
+            if (standbyContainer) standbyContainer.style.display = 'flex';
+            if (filenameText) filenameText.innerText = 'Standby (None)';
+            if (badge) {
+                badge.className = "pill-badge";
+                badge.style.background = "#f1f5f9";
+                badge.style.color = "#64748b";
+                badge.innerHTML = '<i class="fa-solid fa-circle-pause"></i> Standby (Awaiting File)';
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function clearUploadAndExit() {
+        try {
+            await fetch('/api/clear-upload', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken }
             });
             window.location.href = '/';
         } catch (e) {
             console.error(e);
+            window.location.href = '/';
         }
     }
 {% endblock %}

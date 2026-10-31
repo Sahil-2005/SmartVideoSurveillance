@@ -42,14 +42,21 @@ def logout_view(request):
 def dashboard(request):
     mgr = _get_manager()
     cameras = Camera.objects.all().order_by('id')
+    recent_incidents = SecurityIncident.objects.all().order_by('-timestamp')[:4]
+    recent_alerts = SecurityIncident.objects.all().order_by('-timestamp')[:3]
     return render(request, 'surveillance/dashboard.html', {
         'cameras': cameras,
-        'camera_count': cameras.count()
+        'camera_count': cameras.count(),
+        'recent_incidents': recent_incidents,
+        'recent_alerts': recent_alerts,
     })
 
 @auth_required
 def upload_dashboard(request):
-    return render(request, 'surveillance/upload_dashboard.html')
+    upload_cam = Camera.objects.filter(camera_type='upload', is_active=True).first()
+    return render(request, 'surveillance/upload_dashboard.html', {
+        'upload_cam': upload_cam
+    })
 
 @auth_required
 def logs_dashboard(request):
@@ -512,9 +519,32 @@ def upload_source(request):
     return JsonResponse({'status': 'error', 'message': 'Invalid file upload.'})
 
 @auth_required
+def clear_upload_source(request):
+    """Deactivates all uploaded media streams."""
+    if request.method == 'POST':
+        upload_cams = Camera.objects.filter(camera_type='upload')
+        mgr = _get_manager()
+        for c in upload_cams:
+            c.is_active = False
+            c.save()
+            mgr.stop_camera(c.id)
+        return JsonResponse({'status': 'success'})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'})
+
+@auth_required
 def delete_incident(request):
     if request.method == 'POST':
-        incident_id = request.POST.get('incident_id')
+        incident_id = None
+        if request.content_type and 'application/json' in request.content_type:
+            try:
+                import json
+                data = json.loads(request.body)
+                incident_id = data.get('id') or data.get('incident_id')
+            except Exception:
+                pass
+        if not incident_id:
+            incident_id = request.POST.get('incident_id') or request.POST.get('id')
+            
         try:
             incident = SecurityIncident.objects.get(id=incident_id)
             if incident.snapshot:
