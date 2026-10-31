@@ -2,41 +2,133 @@
 
 {% block right_panel %}
 <div class="panel">
-    <div class="panel-header" style="margin-bottom: 1.5rem;">
-        <h3><i class="fa-solid fa-cloud-arrow-up"></i> Upload Media</h3>
+    <div class="panel-header" style="margin-bottom: 1.2rem;">
+        <h3 style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700;">
+            <i class="fa-solid fa-cloud-arrow-up" style="color: var(--cyan-neon);"></i> Media Forensic Ingestion
+        </h3>
     </div>
-    <div class="controls-group">
-        <button class="btn btn-primary" onclick="document.getElementById('file-upload').click()">
-            <i class="fa-solid fa-file-video"></i> Select Image / Video
-        </button>
-        <button class="btn btn-outline" onclick="clearUpload()">
-            <i class="fa-solid fa-trash-can"></i> Clear Media
-        </button>
+
+    <!-- Drag & Drop Holographic Ingestion Zone -->
+    <div id="drop-zone" onclick="document.getElementById('file-upload').click()" style="border: 2px dashed rgba(0, 240, 255, 0.35); border-radius: 14px; padding: 24px 16px; text-align: center; cursor: pointer; background: rgba(0, 240, 255, 0.03); transition: all 0.25s; margin-bottom: 1.2rem; position: relative; overflow: hidden;">
+        <div class="cam-scanline" style="opacity: 0.25;"></div>
+        <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.3); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: var(--cyan-neon); font-size: 1.4rem;">
+            <i class="fa-solid fa-file-video"></i>
+        </div>
+        <div style="font-family: var(--font-display); font-size: 0.95rem; font-weight: 600; color: #fff; margin-bottom: 4px;">
+            Drop Media File or Browse
+        </div>
+        <div style="font-size: 0.76rem; color: var(--text-dim); font-family: var(--font-mono);">
+            MP4, AVI, MKV, JPG, PNG &bull; Max 50MB
+        </div>
         <input type="file" id="file-upload" style="display:none;" accept="image/*,video/*" onchange="uploadFile(this)">
-        <div class="loader" id="upload-loader"></div>
+    </div>
+
+    <!-- File Selection & Status Chip -->
+    <div id="upload-status-box" style="display: none; padding: 12px 14px; border-radius: 10px; background: rgba(6, 11, 24, 0.85); border: 1px solid var(--panel-border); margin-bottom: 1.2rem; font-family: var(--font-mono); font-size: 0.78rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="color: var(--text-dim);">Selected File:</span>
+            <span id="upload-filename" style="color: var(--cyan-neon); font-weight: 600; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">--</span>
+        </div>
+        <!-- Scanning Progress Bar -->
+        <div id="upload-progress-wrapper" style="display: none; width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-top: 8px;">
+            <div id="upload-progress-bar" style="width: 40%; height: 100%; background: var(--gradient-cyber); animation: progressAnim 1.2s infinite ease-in-out;"></div>
+        </div>
+        <div id="upload-status-text" style="color: var(--emerald-neon); font-size: 0.72rem; margin-top: 6px; display: flex; align-items: center; gap: 6px;">
+            <span class="soc-beacon-dot"></span> Ingesting into YOLO11 Core...
+        </div>
+    </div>
+
+    <style>
+        @keyframes progressAnim {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(250%); }
+        }
+        #drop-zone:hover {
+            border-color: var(--cyan-neon);
+            background: rgba(0, 240, 255, 0.08);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.15);
+        }
+    </style>
+
+    <!-- Ingestion Action Controls -->
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button class="btn btn-cyan" onclick="document.getElementById('file-upload').click()" style="width: 100%; padding: 10px; font-weight: 600;">
+            <i class="fa-solid fa-folder-open"></i> Select File for AI Inspection
+        </button>
+        <button class="btn btn-outline" onclick="clearUpload()" style="width: 100%; padding: 10px; font-size: 0.8rem; color: #f87171; border-color: rgba(255,23,68,0.25);">
+            <i class="fa-solid fa-rotate-left"></i> Reset & Return to Live Feed
+        </button>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_scripts %}
+    // Drag & Drop event bindings
+    const dropZone = document.getElementById('drop-zone');
+    if (dropZone) {
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = 'var(--cyan-neon)';
+                dropZone.style.background = 'rgba(0, 240, 255, 0.12)';
+            });
+        });
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = 'rgba(0, 240, 255, 0.35)';
+                dropZone.style.background = 'rgba(0, 240, 255, 0.03)';
+            });
+        });
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                const input = document.getElementById('file-upload');
+                input.files = files;
+                uploadFile(input);
+            }
+        });
+    }
+
     async function uploadFile(input) {
         if (!input.files || input.files.length === 0) return;
+        const file = input.files[0];
         
-        document.getElementById('upload-loader').style.display = 'block';
+        const statusBox = document.getElementById('upload-status-box');
+        const filenameEl = document.getElementById('upload-filename');
+        const progressEl = document.getElementById('upload-progress-wrapper');
+        const statusText = document.getElementById('upload-status-text');
+
+        if (statusBox) statusBox.style.display = 'block';
+        if (filenameEl) filenameEl.innerText = file.name;
+        if (progressEl) progressEl.style.display = 'block';
+        if (statusText) statusText.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading to AI Core...';
+
         try {
             let formData = new FormData();
-            formData.append('file', input.files[0]);
+            formData.append('file', file);
             
-            await fetch('/api/upload', {
+            const res = await fetch('/api/upload', {
                 method: 'POST',
                 headers: { 'X-CSRFToken': csrfToken },
                 body: formData
             });
+
+            if (res.ok) {
+                if (statusText) statusText.innerHTML = '<i class="fa-solid fa-circle-check" style="color: var(--emerald-neon);"></i> Video Stream Initialized!';
+                // Refresh stream image to trigger feed
+                const streamImg = document.getElementById('video-stream');
+                if (streamImg) streamImg.src = `/video_feed?t=${Date.now()}`;
+            } else {
+                if (statusText) statusText.innerHTML = '<i class="fa-solid fa-circle-xmark" style="color: var(--crimson-neon);"></i> Upload Failed.';
+            }
         } catch (e) {
             console.error(e);
+            if (statusText) statusText.innerHTML = `<i class="fa-solid fa-circle-xmark" style="color: var(--crimson-neon);"></i> Error: ${e}`;
         }
-        document.getElementById('upload-loader').style.display = 'none';
-        input.value = ''; // Reset input
+        if (progressEl) progressEl.style.display = 'none';
+        input.value = '';
     }
 
     async function clearUpload() {
@@ -48,6 +140,7 @@
                 headers: { 'X-CSRFToken': csrfToken },
                 body: formData
             });
+            window.location.href = '/';
         } catch (e) {
             console.error(e);
         }

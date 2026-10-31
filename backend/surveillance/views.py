@@ -68,6 +68,40 @@ def logs_dashboard(request):
         'selected_camera_id': int(camera_id) if camera_id and camera_id.isdigit() else None
     })
 
+@auth_required
+def analytics_dashboard(request):
+    cameras = Camera.objects.all().order_by('id')
+    camera_id = request.GET.get('camera_id')
+    
+    incidents = SecurityIncident.objects.all().order_by('-timestamp')
+    if camera_id and camera_id.isdigit():
+        incidents = incidents.filter(camera_id=int(camera_id))
+
+    total_incidents = incidents.count()
+    weapon_incidents = incidents.filter(threat_type__icontains='WEAPON').count()
+    intrusion_incidents = incidents.filter(threat_type__icontains='INTRUSION').count()
+
+    top_cam_entry = (
+        incidents.filter(camera__isnull=False)
+        .values('camera__name')
+        .annotate(cnt=Count('id'))
+        .order_by('-cnt')
+        .first()
+    )
+    top_sector = top_cam_entry['camera__name'] if top_cam_entry else 'All Sectors Secure'
+
+    recent_incidents = incidents[:5]
+
+    return render(request, 'surveillance/analytics_dashboard.html', {
+        'cameras': cameras,
+        'selected_camera_id': int(camera_id) if camera_id and camera_id.isdigit() else None,
+        'total_incidents': total_incidents,
+        'weapon_incidents': weapon_incidents,
+        'intrusion_incidents': intrusion_incidents,
+        'top_sector': top_sector,
+        'recent_incidents': recent_incidents,
+    })
+
 # --- Video Streaming Views ---
 
 @auth_required
@@ -148,8 +182,17 @@ def get_analytics(request):
         window_idx = min(5, h // 4)
         hourly_values[window_idx] += 1
 
+    cam_labels = []
+    cam_values = []
+    for c in Camera.objects.all():
+        cnt = all_incidents.filter(camera=c).count()
+        cam_labels.append(c.name)
+        cam_values.append(cnt)
+
     return JsonResponse({
         'total': total_count,
+        'weapons': weapon_count,
+        'intrusions': intrusion_count,
         'breakdown': {
             'labels': ['Intrusions', 'Weapons', 'Other'],
             'data': [intrusion_count, weapon_count, other_count]
@@ -161,6 +204,10 @@ def get_analytics(request):
         'hourly': {
             'labels': hourly_labels,
             'data': hourly_values
+        },
+        'camera_distribution': {
+            'labels': cam_labels,
+            'data': cam_values
         }
     })
 

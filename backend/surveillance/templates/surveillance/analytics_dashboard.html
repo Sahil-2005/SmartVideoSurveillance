@@ -1,0 +1,477 @@
+{% extends 'surveillance/base.html' %}
+
+{% block main_content %}
+<div style="display: flex; flex-direction: column; gap: 1.5rem; flex: 1;">
+    <!-- Top SOC Intelligence Control Bar -->
+    <div class="panel-header" style="margin-bottom: 0.2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 1.2rem;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+            <div class="logo-icon" style="width: 46px; height: 46px; font-size: 1.3rem;">
+                <i class="fa-solid fa-chart-line"></i>
+            </div>
+            <div>
+                <h3 style="font-family: var(--font-display); font-size: 1.35rem; font-weight: 700;">
+                    Threat Intelligence & Aggregated Analytics
+                </h3>
+                <span style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-dim); margin-top: 3px; display: inline-block;">
+                    EDGE AI TELEMETRY &bull; INCIDENT FREQUENCY DISTRIBUTIONS &bull; MULTI-SECTOR MATRIX
+                </span>
+            </div>
+        </div>
+
+        <!-- Filter & Control Deck -->
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <!-- Filter by Camera Node -->
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="font-size: 0.78rem; font-family: var(--font-mono); color: var(--text-dim);"><i class="fa-solid fa-filter"></i> SECTOR:</label>
+                <select id="analytics-cam-select" class="form-control" style="width: auto; padding: 7px 14px; font-size: 0.8rem; background: rgba(6, 11, 24, 0.95); font-family: var(--font-mono);" onchange="updateAnalyticsFilter(this.value)">
+                    <option value="">All Camera Sectors</option>
+                    {% for c in cameras %}
+                    <option value="{{ c.id }}" {% if selected_camera_id == c.id %}selected{% endif %}>{{ c.name }} ({{ c.get_camera_type_display }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <a href="{% url 'logs_dashboard' %}" class="btn btn-outline" style="padding: 7px 14px; font-size: 0.8rem;">
+                <i class="fa-solid fa-clipboard-list" style="color: var(--cyan-neon);"></i> View Audit Logs
+            </a>
+
+            <button type="button" class="btn btn-cyan" onclick="fetchFullAnalytics()" style="padding: 7px 16px; font-size: 0.8rem;">
+                <i class="fa-solid fa-rotate"></i> Refresh Telemetry
+            </button>
+        </div>
+    </div>
+
+    <!-- 4 High-Tech Holographic Stat Cards -->
+    <div class="stats-row" style="grid-template-columns: repeat(4, 1fr);">
+        <!-- Stat 1: Total Incidents -->
+        <div class="stat-box">
+            <div class="stat-icon icon-purple"><i class="fa-solid fa-database"></i></div>
+            <div class="stat-info">
+                <h3>Total Verified Threats</h3>
+                <div class="value" id="card-total-incidents">{{ total_incidents }}</div>
+                <div class="sub-text">All recorded events</div>
+            </div>
+        </div>
+
+        <!-- Stat 2: Critical Weapons Found -->
+        <div class="stat-box">
+            <div class="stat-icon icon-red"><i class="fa-solid fa-gun"></i></div>
+            <div class="stat-info">
+                <h3>Weapons Detected</h3>
+                <div class="value" id="card-weapon-incidents" style="color: var(--crimson-neon);">{{ weapon_incidents }}</div>
+                <div class="sub-text">Armed threat signatures</div>
+            </div>
+        </div>
+
+        <!-- Stat 3: Zone Perimeter Breaches -->
+        <div class="stat-box">
+            <div class="stat-icon icon-orange"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <div class="stat-info">
+                <h3>Zone Intrusions</h3>
+                <div class="value" id="card-intrusion-incidents" style="color: var(--amber-neon);">{{ intrusion_incidents }}</div>
+                <div class="sub-text">Restricted boundary violations</div>
+            </div>
+        </div>
+
+        <!-- Stat 4: Highest Risk Sector -->
+        <div class="stat-box">
+            <div class="stat-icon icon-blue"><i class="fa-solid fa-crosshairs"></i></div>
+            <div class="stat-info">
+                <h3>Highest Threat Sector</h3>
+                <div class="value" id="card-top-sector" style="font-size: 1.15rem; font-weight: 700; color: var(--cyan-neon); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    {{ top_sector|truncatechars:18 }}
+                </div>
+                <div class="sub-text">Peak incident volume</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4 Cyber SOC Telemetry Charts (2x2 Grid) -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.4rem;">
+        <!-- Chart 1: 7-Day Frequency Trend -->
+        <div class="panel" style="display: flex; flex-direction: column; min-height: 320px;">
+            <div class="panel-header" style="margin-bottom: 0.8rem;">
+                <h4 style="font-size: 0.95rem; font-weight: 600; color: #fff; font-family: var(--font-display);">
+                    <i class="fa-solid fa-wave-square" style="color: var(--cyan-neon); margin-right: 8px;"></i> 7-Day Security Breach Frequency
+                </h4>
+                <span style="font-size: 0.72rem; color: var(--text-dim); font-family: var(--font-mono);">DAILY TIMELINE</span>
+            </div>
+            <div style="flex: 1; position: relative; min-height: 230px;">
+                <canvas id="analyticsTrendChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Chart 2: Threat Vector Classification -->
+        <div class="panel" style="display: flex; flex-direction: column; min-height: 320px;">
+            <div class="panel-header" style="margin-bottom: 0.8rem;">
+                <h4 style="font-size: 0.95rem; font-weight: 600; color: #fff; font-family: var(--font-display);">
+                    <i class="fa-solid fa-chart-pie" style="color: var(--crimson-neon); margin-right: 8px;"></i> Threat Classification Breakdown
+                </h4>
+                <span style="font-size: 0.72rem; color: var(--text-dim); font-family: var(--font-mono);">AI CATEGORIZATION</span>
+            </div>
+            <div style="flex: 1; position: relative; min-height: 230px; display: flex; align-items: center; justify-content: center;">
+                <canvas id="analyticsBreakdownChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Chart 3: Diurnal 24-Hour Windows -->
+        <div class="panel" style="display: flex; flex-direction: column; min-height: 320px;">
+            <div class="panel-header" style="margin-bottom: 0.8rem;">
+                <h4 style="font-size: 0.95rem; font-weight: 600; color: #fff; font-family: var(--font-display);">
+                    <i class="fa-solid fa-clock" style="color: var(--amber-neon); margin-right: 8px;"></i> Diurnal Risk Windows (24-Hour)
+                </h4>
+                <span style="font-size: 0.72rem; color: var(--text-dim); font-family: var(--font-mono);">4H INTERVALS</span>
+            </div>
+            <div style="flex: 1; position: relative; min-height: 230px;">
+                <canvas id="analyticsHourlyChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Chart 4: Camera Sector Risk Distribution -->
+        <div class="panel" style="display: flex; flex-direction: column; min-height: 320px;">
+            <div class="panel-header" style="margin-bottom: 0.8rem;">
+                <h4 style="font-size: 0.95rem; font-weight: 600; color: #fff; font-family: var(--font-display);">
+                    <i class="fa-solid fa-network-wired" style="color: var(--purple-neon); margin-right: 8px;"></i> Sector Threat Distribution
+                </h4>
+                <span style="font-size: 0.72rem; color: var(--text-dim); font-family: var(--font-mono);">PER CAMERA NODE</span>
+            </div>
+            <div style="flex: 1; position: relative; min-height: 230px;">
+                <canvas id="analyticsCameraChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Incident Audit Stream -->
+    <div class="panel" style="margin-top: 0.5rem;">
+        <div class="panel-header" style="margin-bottom: 1rem;">
+            <h4 style="font-size: 1rem; font-weight: 600; color: #fff; font-family: var(--font-display); display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-shield-halved" style="color: var(--cyan-neon);"></i> High-Priority Incident Audit Stream
+            </h4>
+            <a href="{% url 'logs_dashboard' %}" class="btn btn-outline" style="padding: 4px 12px; font-size: 0.75rem;">
+                View Full Audit Log ({{ total_incidents }}) &rarr;
+            </a>
+        </div>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead>
+                    <tr style="border-bottom: 1px solid var(--panel-border); color: var(--text-dim); font-size: 0.72rem; text-transform: uppercase; font-family: var(--font-mono);">
+                        <th style="padding: 10px 14px;">Incident ID</th>
+                        <th style="padding: 10px 14px;">Timestamp (UTC)</th>
+                        <th style="padding: 10px 14px;">Surveillance Sector</th>
+                        <th style="padding: 10px 14px;">Threat Vector</th>
+                        <th style="padding: 10px 14px;">Severity</th>
+                        <th style="padding: 10px 14px;">Snapshot</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if recent_incidents %}
+                        {% for inc in recent_incidents %}
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.85rem;">
+                            <td style="padding: 12px 14px; font-family: var(--font-mono); font-size: 0.8rem; color: var(--cyan-neon);">
+                                #SEC-{{ inc.id|stringformat:"04d" }}
+                            </td>
+                            <td style="padding: 12px 14px; font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-main);">
+                                {{ inc.timestamp|date:"Y-m-d H:i:s" }}
+                            </td>
+                            <td style="padding: 12px 14px; font-family: var(--font-mono); font-size: 0.8rem;">
+                                {% if inc.camera %}
+                                    <span style="color: var(--blue-neon);"><i class="fa-solid fa-video" style="font-size: 0.75rem;"></i> {{ inc.camera.name }}</span>
+                                {% else %}
+                                    <span style="color: var(--text-dim);">{{ inc.source }}</span>
+                                {% endif %}
+                            </td>
+                            <td style="padding: 12px 14px; font-weight: 600;">
+                                {% if inc.threat_type == 'WEAPON' %}
+                                    <span style="color: #ff809b;"><i class="fa-solid fa-gun" style="color: var(--crimson-neon);"></i> WEAPON DETECTED</span>
+                                {% else %}
+                                    <span style="color: #fde68a;"><i class="fa-solid fa-triangle-exclamation" style="color: var(--amber-neon);"></i> ZONE INTRUSION</span>
+                                {% endif %}
+                            </td>
+                            <td style="padding: 12px 14px;">
+                                <span style="padding: 2px 8px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.7rem; font-weight: 700; background: rgba(255, 23, 68, 0.15); border: 1px solid var(--crimson-neon); color: #ff809b;">
+                                    {{ inc.severity }}
+                                </span>
+                            </td>
+                            <td style="padding: 12px 14px;">
+                                {% if inc.snapshot %}
+                                    <button type="button" class="btn" onclick="openEvidenceLightbox('{{ inc.snapshot.url }}', 'Incident #SEC-{{ inc.id|stringformat:"04d" }}', '{{ inc.timestamp|date:"Y-m-d H:i:s" }}', '{{ inc.threat_type }}')" style="padding: 4px 10px; font-size: 0.72rem; color: var(--cyan-neon); border-color: rgba(0,240,255,0.3);">
+                                        <i class="fa-solid fa-expand"></i> Inspect
+                                    </button>
+                                {% else %}
+                                    <span style="color: var(--text-dim); font-size: 0.75rem; font-family: var(--font-mono);">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="6" style="padding: 30px; text-align: center; color: var(--text-dim); font-family: var(--font-mono);">
+                                No recent incidents logged in this sector.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+    let aTrendChart = null;
+    let aBreakdownChart = null;
+    let aHourlyChart = null;
+    let aCameraChart = null;
+
+    function updateAnalyticsFilter(camId) {
+        if (camId) {
+            window.location.href = `/analytics-dashboard?camera_id=${camId}`;
+        } else {
+            window.location.href = `/analytics-dashboard`;
+        }
+    }
+
+    async function fetchFullAnalytics() {
+        const select = document.getElementById('analytics-cam-select');
+        const camId = select ? select.value : '';
+        const url = camId ? `/api/analytics?camera_id=${camId}` : '/api/analytics';
+
+        try {
+            const res = await fetch(url);
+            if (!res.ok) return;
+            const data = await res.json();
+
+            // Update top cards
+            const totalEl = document.getElementById('card-total-incidents');
+            const weaponEl = document.getElementById('card-weapon-incidents');
+            const intrusionEl = document.getElementById('card-intrusion-incidents');
+
+            if (totalEl) totalEl.innerText = data.total;
+            if (weaponEl && data.weapons !== undefined) weaponEl.innerText = data.weapons;
+            if (intrusionEl && data.intrusions !== undefined) intrusionEl.innerText = data.intrusions;
+
+            Chart.defaults.color = '#94a3b8';
+            Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+
+            // 1. Line Trend Chart
+            const trendCtx = document.getElementById('analyticsTrendChart');
+            if (trendCtx) {
+                if (aTrendChart) {
+                    aTrendChart.data.labels = data.trend.labels;
+                    aTrendChart.data.datasets[0].data = data.trend.data;
+                    aTrendChart.update();
+                } else {
+                    aTrendChart = new Chart(trendCtx, {
+                        type: 'line',
+                        data: {
+                            labels: data.trend.labels,
+                            datasets: [{
+                                label: 'Threat Breaches',
+                                data: data.trend.data,
+                                borderColor: '#00f0ff',
+                                backgroundColor: 'rgba(0, 240, 255, 0.12)',
+                                borderWidth: 2.5,
+                                fill: true,
+                                tension: 0.35,
+                                pointBackgroundColor: '#00f0ff',
+                                pointBorderColor: '#050711',
+                                pointBorderWidth: 2,
+                                pointRadius: 4,
+                                pointHoverRadius: 6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    backgroundColor: '#0a0e1c',
+                                    titleColor: '#00f0ff',
+                                    bodyColor: '#f8fafc',
+                                    borderColor: 'rgba(0, 240, 255, 0.3)',
+                                    borderWidth: 1,
+                                    padding: 10,
+                                    displayColors: false
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    grid: { color: 'rgba(255, 255, 255, 0.04)' },
+                                    ticks: { color: '#64748b', font: { size: 10 } }
+                                },
+                                y: {
+                                    beginAtZero: true,
+                                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                                    ticks: { color: '#64748b', font: { size: 10 }, precision: 0 }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+
+            // 2. Threat Breakdown Doughnut
+            const breakdownCtx = document.getElementById('analyticsBreakdownChart');
+            if (breakdownCtx) {
+                const hasData = (data.breakdown.data.reduce((a, b) => a + b, 0)) > 0;
+                const chartData = hasData ? data.breakdown.data : [1];
+                const chartLabels = hasData ? data.breakdown.labels : ['Perimeter Clear'];
+                const chartColors = hasData ? ['#f59e0b', '#ff1744', '#00f0ff'] : ['rgba(255, 255, 255, 0.08)'];
+
+                if (aBreakdownChart) {
+                    aBreakdownChart.data.labels = chartLabels;
+                    aBreakdownChart.data.datasets[0].data = chartData;
+                    aBreakdownChart.data.datasets[0].backgroundColor = chartColors;
+                    aBreakdownChart.update();
+                } else {
+                    aBreakdownChart = new Chart(breakdownCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: chartLabels,
+                            datasets: [{
+                                data: chartData,
+                                backgroundColor: chartColors,
+                                borderColor: '#080c18',
+                                borderWidth: 3,
+                                hoverOffset: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            cutout: '70%',
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        boxWidth: 8,
+                                        boxHeight: 8,
+                                        padding: 10,
+                                        font: { size: 10 },
+                                        color: '#94a3b8'
+                                    }
+                                },
+                                tooltip: {
+                                    backgroundColor: '#0a0e1c',
+                                    titleColor: '#00f0ff',
+                                    bodyColor: '#f8fafc',
+                                    borderColor: 'rgba(0, 240, 255, 0.3)',
+                                    borderWidth: 1,
+                                    padding: 8
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+
+            // 3. Hourly Bar Chart
+            const hourlyCtx = document.getElementById('analyticsHourlyChart');
+            if (hourlyCtx) {
+                if (aHourlyChart) {
+                    aHourlyChart.data.labels = data.hourly.labels;
+                    aHourlyChart.data.datasets[0].data = data.hourly.data;
+                    aHourlyChart.update();
+                } else {
+                    aHourlyChart = new Chart(hourlyCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.hourly.labels,
+                            datasets: [{
+                                label: 'Threat Breaches',
+                                data: data.hourly.data,
+                                backgroundColor: 'rgba(245, 158, 11, 0.55)',
+                                borderColor: '#f59e0b',
+                                borderWidth: 1.5,
+                                borderRadius: 6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    backgroundColor: '#0a0e1c',
+                                    titleColor: '#f59e0b',
+                                    bodyColor: '#f8fafc',
+                                    borderColor: 'rgba(245, 158, 11, 0.3)',
+                                    borderWidth: 1,
+                                    padding: 8
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    grid: { display: false },
+                                    ticks: { color: '#64748b', font: { size: 9 } }
+                                },
+                                y: {
+                                    beginAtZero: true,
+                                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                                    ticks: { color: '#64748b', font: { size: 10 }, precision: 0 }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+
+            // 4. Per-Camera Sector Risk Distribution (Horizontal Bar)
+            const cameraCtx = document.getElementById('analyticsCameraChart');
+            if (cameraCtx && data.camera_distribution) {
+                if (aCameraChart) {
+                    aCameraChart.data.labels = data.camera_distribution.labels;
+                    aCameraChart.data.datasets[0].data = data.camera_distribution.data;
+                    aCameraChart.update();
+                } else {
+                    aCameraChart = new Chart(cameraCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.camera_distribution.labels,
+                            datasets: [{
+                                label: 'Sector Threats',
+                                data: data.camera_distribution.data,
+                                backgroundColor: 'rgba(168, 85, 247, 0.55)',
+                                borderColor: '#a855f7',
+                                borderWidth: 1.5,
+                                borderRadius: 6
+                            }]
+                        },
+                        options: {
+                            indexAxis: 'y',
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    backgroundColor: '#0a0e1c',
+                                    titleColor: '#a855f7',
+                                    bodyColor: '#f8fafc',
+                                    borderColor: 'rgba(168, 85, 247, 0.3)',
+                                    borderWidth: 1,
+                                    padding: 8
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    beginAtZero: true,
+                                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                                    ticks: { color: '#64748b', font: { size: 9 }, precision: 0 }
+                                },
+                                y: {
+                                    grid: { display: false },
+                                    ticks: { color: '#94a3b8', font: { size: 10 } }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        } catch (e) {
+            console.error("fetchFullAnalytics error:", e);
+        }
+    }
+
+    fetchFullAnalytics();
+{% endblock %}

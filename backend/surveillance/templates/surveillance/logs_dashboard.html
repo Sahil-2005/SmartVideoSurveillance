@@ -1,90 +1,148 @@
 {% extends 'surveillance/base.html' %}
 
 {% block main_content %}
-<div class="panel" style="flex: 1;">
-    <div class="panel-header" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-        <div>
-            <h3 style="display: flex; align-items: center; gap: 10px;">
-                <i class="fa-solid fa-file-shield" style="color: #ef4444;"></i> Multi-Camera Incident Audit Log
-            </h3>
-            <span style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; display: inline-block;">
-                Total Verified Threats: <strong id="total-incidents-count" style="color: #fff;">{{ total_incidents }}</strong>
-            </span>
+<div class="panel" style="flex: 1; display: flex; flex-direction: column;">
+    <!-- Cyber SOC Audit Header & Control Deck -->
+    <div class="panel-header" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 1rem;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+            <div class="logo-icon" style="width: 44px; height: 44px; font-size: 1.2rem; background: var(--gradient-danger); box-shadow: var(--crimson-glow);">
+                <i class="fa-solid fa-file-shield" style="color: #fff;"></i>
+            </div>
+            <div>
+                <h3 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700;">
+                    Threat Operations Incident Matrix
+                </h3>
+                <span style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-dim); margin-top: 3px; display: inline-block;">
+                    TOTAL LOGGED THREATS: <strong id="total-incidents-count" style="color: var(--cyan-neon);">{{ total_incidents }}</strong> &bull; CRYPTOGRAPHIC EVIDENCE PRESERVED
+                </span>
+            </div>
         </div>
+
+        <!-- Filter & Action Controls -->
         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
             <!-- Filter by Camera -->
-            <div style="display: flex; align-items: center; gap: 6px;">
-                <label style="font-size: 0.8rem; color: var(--text-muted);"><i class="fa-solid fa-filter"></i> Camera:</label>
-                <select class="form-control" style="width: auto; padding: 6px 12px; font-size: 0.8rem; background: rgba(15, 23, 42, 0.9);" onchange="window.location.href = this.value ? '/logs-dashboard?camera_id=' + this.value : '/logs-dashboard'">
-                    <option value="">All Cameras</option>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="font-size: 0.78rem; font-family: var(--font-mono); color: var(--text-dim);"><i class="fa-solid fa-filter"></i> NODE:</label>
+                <select class="form-control" style="width: auto; padding: 7px 14px; font-size: 0.8rem; background: rgba(6, 11, 24, 0.95); font-family: var(--font-mono);" onchange="window.location.href = this.value ? '/logs-dashboard?camera_id=' + this.value : '/logs-dashboard'">
+                    <option value="">All Camera Nodes</option>
                     {% for c in cameras %}
                     <option value="{{ c.id }}" {% if selected_camera_id == c.id %}selected{% endif %}>{{ c.name }} ({{ c.get_camera_type_display }})</option>
                     {% endfor %}
                 </select>
             </div>
 
+            <!-- Export to CSV -->
             {% if incidents %}
-            <button class="btn btn-outline" onclick="clearAllLogs()" style="padding: 7px 15px; font-size: 0.8rem; color: #f87171; border-color: rgba(239,68,68,0.3);">
-                <i class="fa-solid fa-trash-can"></i> Clear All Logs
+            <button class="btn btn-outline" onclick="exportLogsCSV()" style="padding: 7px 14px; font-size: 0.8rem;" title="Download CSV Audit Report">
+                <i class="fa-solid fa-file-arrow-down" style="color: var(--cyan-neon);"></i> Export CSV
+            </button>
+            <button class="btn btn-outline" onclick="clearAllLogs()" style="padding: 7px 14px; font-size: 0.8rem; color: #f87171; border-color: rgba(255,23,68,0.3);">
+                <i class="fa-solid fa-trash-can"></i> Clear All
             </button>
             {% endif %}
-            <button class="btn btn-outline" onclick="window.location.reload()" style="padding: 7px 15px; font-size: 0.8rem;">
+
+            <button class="btn" onclick="window.location.reload()" style="padding: 7px 14px; font-size: 0.8rem;">
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
             </button>
         </div>
     </div>
     
-    <div class="logs-container" style="overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+    <!-- Incident Table -->
+    <div class="logs-container" style="overflow-x: auto; flex: 1;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left;" id="incidents-table">
             <thead>
-                <tr style="border-bottom: 1px solid var(--panel-border); color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">
-                    <th style="padding: 14px;">Incident ID</th>
-                    <th style="padding: 14px;">Timestamp (UTC)</th>
-                    <th style="padding: 14px;">Camera Source</th>
-                    <th style="padding: 14px;">Threat Type</th>
-                    <th style="padding: 14px;">Severity</th>
-                    <th style="padding: 14px;">Intruders</th>
-                    <th style="padding: 14px;">Evidence</th>
-                    <th style="padding: 14px; text-align: right;">Action</th>
+                <tr style="border-bottom: 1px solid var(--panel-border); color: var(--text-dim); font-size: 0.75rem; text-transform: uppercase; font-family: var(--font-mono); letter-spacing: 0.05em;">
+                    <th style="padding: 14px 16px;">Incident ID</th>
+                    <th style="padding: 14px 16px;">Timestamp</th>
+                    <th style="padding: 14px 16px;">Surveillance Node</th>
+                    <th style="padding: 14px 16px;">Threat Vector</th>
+                    <th style="padding: 14px 16px;">Severity</th>
+                    <th style="padding: 14px 16px;">Intruders</th>
+                    <th style="padding: 14px 16px;">Snapshot Evidence</th>
+                    <th style="padding: 14px 16px; text-align: right;">Action</th>
                 </tr>
             </thead>
             <tbody id="logs-tbody">
                 {% if incidents %}
                     {% for inc in incidents %}
-                    <tr id="row-{{ inc.id }}" style="border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.9rem;">
-                        <td style="padding: 14px; color: var(--text-muted); font-family: monospace;">#SEC-{{ inc.id|stringformat:"04d" }}</td>
-                        <td style="padding: 14px; color: var(--text-main);">{{ inc.timestamp|date:"Y-m-d H:i:s" }}</td>
-                        <td style="padding: 14px;">
+                    <tr id="row-{{ inc.id }}" style="border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.88rem; transition: background 0.2s;" onmouseenter="this.style.background='rgba(0, 240, 255, 0.03)'" onmouseleave="this.style.background='transparent'">
+                        <!-- Incident ID -->
+                        <td style="padding: 14px 16px; font-family: var(--font-mono); font-size: 0.82rem; color: var(--cyan-neon);">
+                            #SEC-{{ inc.id|stringformat:"04d" }}
+                        </td>
+                        
+                        <!-- Timestamp -->
+                        <td style="padding: 14px 16px; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-main);">
+                            {{ inc.timestamp|date:"Y-m-d H:i:s" }}
+                        </td>
+                        
+                        <!-- Camera Source -->
+                        <td style="padding: 14px 16px;">
                             {% if inc.camera %}
-                                <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 8px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; font-size: 0.78rem;">
-                                    <i class="fa-solid fa-video"></i> {{ inc.camera.name }}
+                                <span style="display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px; border-radius: 8px; background: rgba(0, 240, 255, 0.08); border: 1px solid rgba(0, 240, 255, 0.25); color: var(--cyan-neon); font-size: 0.78rem; font-family: var(--font-mono);">
+                                    {% if inc.camera.camera_type == 'ip_webcam' %}
+                                        <i class="fa-solid fa-mobile-screen"></i>
+                                    {% elif inc.camera.camera_type == 'webcam' %}
+                                        <i class="fa-solid fa-laptop"></i>
+                                    {% else %}
+                                        <i class="fa-solid fa-video"></i>
+                                    {% endif %}
+                                    {{ inc.camera.name }}
                                 </span>
                             {% else %}
-                                <span style="color: var(--text-muted); font-size: 0.82rem;">{{ inc.source }}</span>
+                                <span style="color: var(--text-dim); font-size: 0.8rem; font-family: var(--font-mono);">{{ inc.source }}</span>
                             {% endif %}
                         </td>
-                        <td style="padding: 14px; font-weight: 600; color: #fca5a5;">
-                            <i class="fa-solid fa-triangle-exclamation" style="margin-right: 6px; color: #ef4444;"></i>
-                            {{ inc.threat_type }}
-                        </td>
-                        <td style="padding: 14px;">
-                            <span class="status-pill" style="display:inline-block; padding: 4px 10px; font-size: 0.72rem; background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.4); color: #f87171;">
-                                {{ inc.severity }}
-                            </span>
-                        </td>
-                        <td style="padding: 14px; color: #fff; font-weight: 600;">{{ inc.intruder_count }}</td>
-                        <td style="padding: 14px;">
-                            {% if inc.snapshot %}
-                                <a href="{{ inc.snapshot.url }}" target="_blank" class="btn btn-outline" style="padding: 5px 12px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 5px; color: #93c5fd; border-color: rgba(59,130,246,0.3);">
-                                    <i class="fa-solid fa-image"></i> View Snapshot
-                                </a>
+                        
+                        <!-- Threat Type -->
+                        <td style="padding: 14px 16px; font-weight: 600;">
+                            {% if inc.threat_type == 'WEAPON' %}
+                                <span style="color: #ff809b; display: flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-gun" style="color: var(--crimson-neon);"></i> WEAPON DETECTED
+                                </span>
                             {% else %}
-                                <span style="color: var(--text-muted); font-size: 0.8rem;">No Image</span>
+                                <span style="color: #fde68a; display: flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--amber-neon);"></i> ZONE INTRUSION
+                                </span>
+                            {% endif %}
+                        </td>
+                        
+                        <!-- Severity -->
+                        <td style="padding: 14px 16px;">
+                            {% if inc.severity == 'CRITICAL' %}
+                                <span style="padding: 3px 10px; border-radius: 6px; font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700; background: rgba(255, 23, 68, 0.2); border: 1px solid var(--crimson-neon); color: #ff809b; box-shadow: 0 0 10px rgba(255, 23, 68, 0.3);">
+                                    CRITICAL
+                                </span>
+                            {% elif inc.severity == 'HIGH' %}
+                                <span style="padding: 3px 10px; border-radius: 6px; font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700; background: rgba(245, 158, 11, 0.2); border: 1px solid var(--amber-neon); color: #fde68a;">
+                                    HIGH
+                                </span>
+                            {% else %}
+                                <span style="padding: 3px 10px; border-radius: 6px; font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700; background: rgba(56, 189, 248, 0.15); border: 1px solid var(--blue-neon); color: #93c5fd;">
+                                    {{ inc.severity }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        
+                        <!-- Intruders Count -->
+                        <td style="padding: 14px 16px; font-family: var(--font-mono); font-weight: 700; color: #fff;">
+                            {{ inc.intruder_count }}
+                        </td>
+                        
+                        <!-- Snapshot Evidence -->
+                        <td style="padding: 14px 16px;">
+                            {% if inc.snapshot %}
+                                <button type="button" class="btn" onclick="openEvidenceLightbox('{{ inc.snapshot.url }}', 'Incident #SEC-{{ inc.id|stringformat:"04d" }}', '{{ inc.timestamp|date:"Y-m-d H:i:s" }}', '{{ inc.threat_type }}')" style="padding: 5px 12px; font-size: 0.76rem; color: var(--cyan-neon); border-color: rgba(0,240,255,0.3); background: rgba(0,240,255,0.06);">
+                                    <i class="fa-solid fa-expand"></i> Inspect Frame
+                                </button>
+                            {% else %}
+                                <span style="color: var(--text-dim); font-size: 0.78rem; font-family: var(--font-mono);">NO EVIDENCE</span>
                             {% endif %}
                         </td>
 
-                        <td style="padding: 14px; text-align: right;">
-                            <button onclick="deleteLog({{ inc.id }})" class="btn btn-outline" style="padding: 5px 10px; font-size: 0.75rem; color: #f87171; border-color: rgba(239,68,68,0.2);" title="Delete Record">
+                        <!-- Action -->
+                        <td style="padding: 14px 16px; text-align: right;">
+                            <button onclick="deleteLog({{ inc.id }})" class="btn" style="padding: 5px 10px; font-size: 0.76rem; color: #f87171; border-color: rgba(239,68,68,0.25);" title="Delete Record">
                                 <i class="fa-solid fa-trash"></i>
                             </button>
                         </td>
@@ -92,9 +150,12 @@
                     {% endfor %}
                 {% else %}
                     <tr id="empty-row">
-                        <td colspan="8" style="padding: 40px; text-align: center; color: var(--text-muted);">
-                            <i class="fa-solid fa-shield-check" style="font-size: 2.5rem; color: #10b981; margin-bottom: 12px; display: block;"></i>
-                            No security incidents recorded yet. Perimeter is secure!
+                        <td colspan="8" style="padding: 60px 20px; text-align: center; color: var(--text-muted);">
+                            <div style="width: 60px; height: 60px; border-radius: 50%; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; color: var(--emerald-neon); font-size: 1.8rem; box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);">
+                                <i class="fa-solid fa-shield-check"></i>
+                            </div>
+                            <div style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; color: #fff; margin-bottom: 6px;">All Perimeter Sectors Secure</div>
+                            <div style="font-size: 0.85rem; color: var(--text-dim); font-family: var(--font-mono);">No unauthorized breaches or weapon signatures logged in audit database.</div>
                         </td>
                     </tr>
                 {% endif %}
@@ -105,8 +166,37 @@
 {% endblock %}
 
 {% block extra_scripts %}
+    // Client-side CSV Exporter
+    function exportLogsCSV() {
+        const table = document.getElementById('incidents-table');
+        if (!table) return;
+
+        let csv = [];
+        const rows = table.querySelectorAll('tr');
+
+        for (let i = 0; i < rows.length; i++) {
+            if (rows[i].id === 'empty-row') continue;
+            let row = [];
+            const cols = rows[i].querySelectorAll('td, th');
+            for (let j = 0; j < cols.length - 1; j++) { // Exclude action column
+                let text = cols[j].innerText.trim().replace(/"/g, '""');
+                row.push(`"${text}"`);
+            }
+            if (row.length > 0) csv.push(row.join(','));
+        }
+
+        const csvFile = new Blob([csv.join('\n')], { type: 'text/csv' });
+        const downloadLink = document.createElement('a');
+        downloadLink.download = `Aegis_Incident_Audit_${Date.now()}.csv`;
+        downloadLink.href = window.URL.createObjectURL(csvFile);
+        downloadLink.style.display = 'none';
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+    }
+
     async function deleteLog(incidentId) {
-        if (!confirm('Are you sure you want to delete this incident log?')) return;
+        if (!confirm('Are you sure you want to permanently delete this incident record?')) return;
         
         try {
             let formData = new FormData();
@@ -124,7 +214,6 @@
                     const row = document.getElementById(`row-${incidentId}`);
                     if (row) row.remove();
                     
-                    // Update counter
                     const countEl = document.getElementById('total-incidents-count');
                     if (countEl) {
                         let cur = parseInt(countEl.innerText) || 0;
@@ -138,7 +227,7 @@
     }
 
     async function clearAllLogs() {
-        if (!confirm('Are you sure you want to permanently clear all recorded logs and snapshot evidence?')) return;
+        if (!confirm('Are you sure you want to permanently clear ALL recorded incidents and evidence snapshots?')) return;
         
         try {
             const res = await fetch('/api/clear-all-incidents', {
@@ -154,4 +243,3 @@
         }
     }
 {% endblock %}
-

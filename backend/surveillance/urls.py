@@ -7,6 +7,7 @@ urlpatterns = [
     path('', views.dashboard, name='dashboard'),
     path('upload-dashboard', views.upload_dashboard, name='upload_dashboard'),
     path('logs-dashboard', views.logs_dashboard, name='logs_dashboard'),
+    path('analytics-dashboard', views.analytics_dashboard, name='analytics_dashboard'),
     
     # Video Streaming Feeds
     path('video_feed', views.video_feed, name='video_feed'),
