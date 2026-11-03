@@ -142,24 +142,25 @@ def is_complete_person(x1, y1, x2, y2, conf, frame):
         return False
 
     # 2. Minimum physical dimensions (in 640x480 resolution)
-    if h < 90 or w < 40 or (w * h) < 5000:
+    # A complete person body/torso is at least 65px wide and 110px tall. Eliminates narrow limbs/hands
+    if h < 110 or w < 65 or (w * h) < 8000:
         return False
 
     # 3. Valid Human Aspect Ratio
     aspect = h / float(w)
-    if aspect < 0.60 or aspect > 4.5:
+    if aspect < 0.60 or aspect > 4.0:
         return False
 
     # 4. Complete Person Geometry:
-    is_full_body = (aspect >= 1.40 and h >= 90)
-    is_seated = (h >= 120 and aspect >= 0.65)
-    is_high_conf = (conf >= 0.65 and h >= 100 and w >= 60)
+    is_full_body = (aspect >= 1.40 and h >= 150 and w >= 65)
+    is_seated = (h >= 120 and w >= 80 and aspect >= 0.65)
+    is_high_conf = (conf >= 0.65 and h >= 110 and w >= 70)
     if not (is_full_body or is_seated or is_high_conf):
         return False
 
     # 5. Hand Rejection:
-    # A hand or isolated limb proposal is small (< 18,000 px^2) and lacks full-body aspect
-    if (w * h) < 18000 and conf < 0.65:
+    # A hand or isolated limb proposal is small (< 18,000 px^2) and narrow (w < 70)
+    if (w * h) < 18000 and (conf < 0.65 or w < 70):
         if not is_full_body:
             return False
 
@@ -224,50 +225,61 @@ def filter_and_suppress_weapons(raw_weapons, detected_persons=None):
     Validates weapon candidates (Knife & Pistol) and applies NMS deduplication.
     
     Validation Criteria:
-    1. Confidence Thresholds:
-       - If near a person: conf >= 0.45 (reliably detects pistols and knives held by individuals).
-       - If standalone/no person: conf >= 0.70 (eliminates spurious items on empty walls/curtains).
+    1. Class-Specific Confidence Thresholds:
+       - Knife: Since real knives often reflect light or have lower contrast against backgrounds,
+         knives held within arm's reach of a person (<= 110px) are accepted with conf >= 0.35.
+         Standalone knives away from people require conf >= 0.65.
+       - Pistol: To prevent false alarms on chair corners, shadows, or shirts, pistols near a
+         person require conf >= 0.52. Standalone pistols require conf >= 0.72.
     2. Physical Dimension Bounds:
-       - Minimum size: width >= 20px, height >= 20px, area >= 400px^2.
-       - Maximum size: area <= 80,000px^2 (cannot cover the whole room).
+       - Minimum size: width >= 16px, height >= 16px, area >= 300px^2.
+       - Maximum size: area <= 75,000px^2.
     3. Aspect Ratio:
-       - Rejects extreme thin lines (aspect ratio > 7.0), e.g. curtain edges, cables, seams.
-    4. Person Proximity / Context Association:
-       If persons are detected, checks if the weapon is within reaching proximity (130px)
-       of any detected person. Rejects low-confidence detections floating in empty areas.
+       - Rejects extreme thin lines (aspect ratio > 7.0), e.g. curtain seams, cables.
+    4. Person Reach / Arm Reach Association:
+       In 640x480 resolution, an outstretched arm holding a weapon extends up to 110px
+       from the person's torso bounding box.
     5. Non-Maximum Suppression (IoU > 0.35): Eliminates duplicate boxes on the same weapon.
     """
     valid_candidates = []
     for w in raw_weapons:
         wx1, wy1, wx2, wy2 = w['coords']
         conf = w['conf']
+        name = w.get('name', '').upper()
         ww = wx2 - wx1
         wh = wy2 - wy1
         area = ww * wh
 
-        if ww < 20 or wh < 20 or area < 400 or area > 80000:
+        if ww < 16 or wh < 16 or area < 300 or area > 75000:
             continue
 
         aspect = max(ww, wh) / max(1, min(ww, wh))
         if aspect > 7.0:
             continue
 
-        # Proximity to person check:
-        # If persons are detected, a weapon threat must be near or carried by a person
+        # Proximity to person check (arm's reach <= 110px)
+        near_person = False
         if detected_persons:
-            near_person = False
             for p in detected_persons:
                 px1, py1, px2, py2 = p['coords']
-                # Check expanded bounding box (within 130px radius of person)
-                if (wx2 >= px1 - 130 and wx1 <= px2 + 130 and wy2 >= py1 - 130 and wy1 <= py2 + 130):
+                # Check expanded bounding box (within arm's reach ~110px of person)
+                if (wx2 >= px1 - 110 and wx1 <= px2 + 110 and wy2 >= py1 - 110 and wy1 <= py2 + 110):
                     near_person = True
                     break
-            if near_person and conf < 0.45:
-                continue
-            if not near_person and conf < 0.70:
+
+        is_knife = ('KNIFE' in name)
+
+        if near_person:
+            # When wielded by a person:
+            # Knives have minimal false positives on background, so threshold is sensitive (0.35)
+            # Pistols require 0.52 to prevent clothing/chair fold triggers
+            min_conf = 0.35 if is_knife else 0.52
+            if conf < min_conf:
                 continue
         else:
-            if conf < 0.70:
+            # Standalone weapon away from any person:
+            min_conf = 0.65 if is_knife else 0.72
+            if conf < min_conf:
                 continue
 
         valid_candidates.append(w)
@@ -429,7 +441,7 @@ class SharedInferenceWorker:
             )
             if should_run_weapon:
                 try:
-                    w_results = self.weapon_model(frame, conf=0.40, imgsz=480, verbose=False)
+                    w_results = self.weapon_model(frame, conf=0.30, imgsz=640, verbose=False)
                     raw_weapons = []
                     for r in w_results:
                         for box in r.boxes:
@@ -729,7 +741,18 @@ class CameraProcessor:
                 if now - self.last_person_seen_time > 0.7:
                     self.cached_persons = []
 
-            self.cached_weapons = detected_weapons
+            # Multi-frame temporal confirmation for weapons:
+            # Prevents single-frame glitches, optical artifacts, or lighting flicker from causing false alerts
+            if detected_weapons:
+                self.weapon_threat_counter = min(5, self.weapon_threat_counter + 1)
+                self.last_weapon_seen_time = now
+                if self.weapon_threat_counter >= 2:
+                    self.cached_weapons = detected_weapons
+            else:
+                self.weapon_threat_counter = max(0, self.weapon_threat_counter - 1)
+                if self.weapon_threat_counter == 0 or (now - self.last_weapon_seen_time > 0.6):
+                    self.cached_weapons = []
+
             self.last_inferred_frame_id = frame_idx
 
     def _render_loop(self):
@@ -748,6 +771,7 @@ class CameraProcessor:
                 zone_config = self.zone_config.copy() if self.zone_config else {}
                 cached_p = list(self.cached_persons)
                 cached_w = list(self.cached_weapons)
+                weapon_counter = self.weapon_threat_counter
 
             if raw_frame is None or status != "ONLINE":
                 time.sleep(0.05)
@@ -773,7 +797,9 @@ class CameraProcessor:
                     'is_intruder': is_in_zone
                 })
 
-            weapon_count = len(cached_w)
+            # Weapon confirmation: require at least 2 consecutive detections to eliminate glitches
+            is_confirmed_weapon = (len(cached_w) > 0 and weapon_counter >= 2)
+            weapon_count = len(cached_w) if is_confirmed_weapon else 0
 
             # 1. Render Restricted Zone overlay
             if zone_polygon is not None:
@@ -824,24 +850,25 @@ class CameraProcessor:
                 cv2.line(display_frame, (x1, y2), (x1 + c_len, y2), box_color, 3, cv2.LINE_AA)
                 cv2.line(display_frame, (x1, y2), (x1, y2 - c_len), box_color, 3, cv2.LINE_AA)
                 cv2.line(display_frame, (x2, y2), (x2 - c_len, y2), box_color, 3, cv2.LINE_AA)
-                cv2.line(display_frame, (x2, y2), (x2, y2 - c_len), box_color, 3, cv2.LINE_AA)
+                cv2.line(display_frame, (x2, y2), (x2 - c_len, y2), box_color, 3, cv2.LINE_AA)
 
                 (tw, th), _ = cv2.getTextSize(tag, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
                 cv2.rectangle(display_frame, (x1, max(15, y1 - 20)), (x1 + tw + 8, max(15, y1)), box_color, -1)
                 cv2.putText(display_frame, tag, (x1 + 4, max(12, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
 
-            # 3. Render Weapon Bounding Boxes
-            for w in cached_w:
-                wx1, wy1, wx2, wy2 = w['coords']
-                w_tag = f"WEAPON: {w['name']} {w['conf']*100:.0f}%"
-                w_color = (0, 69, 255)  # Neon Orange-Red
-                cv2.rectangle(display_frame, (wx1, wy1), (wx2, wy2), w_color, 2, cv2.LINE_AA)
-                (wtw, wth), _ = cv2.getTextSize(w_tag, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
-                cv2.rectangle(display_frame, (wx1, max(15, wy1 - 20)), (wx1 + wtw + 8, max(15, wy1)), w_color, -1)
-                cv2.putText(display_frame, w_tag, (wx1 + 4, max(12, wy1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
+            # 3. Render Weapon Bounding Boxes (confirmed threats only)
+            if is_confirmed_weapon:
+                for w in cached_w:
+                    wx1, wy1, wx2, wy2 = w['coords']
+                    w_tag = f"WEAPON: {w['name']} {w['conf']*100:.0f}%"
+                    w_color = (0, 69, 255)  # Neon Orange-Red
+                    cv2.rectangle(display_frame, (wx1, wy1), (wx2, wy2), w_color, 2, cv2.LINE_AA)
+                    (wtw, wth), _ = cv2.getTextSize(w_tag, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+                    cv2.rectangle(display_frame, (wx1, max(15, wy1 - 20)), (wx1 + wtw + 8, max(15, wy1)), w_color, -1)
+                    cv2.putText(display_frame, w_tag, (wx1 + 4, max(12, wy1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
 
             # 4. Flashing Alert Banners & Smart Snapshot Recording
-            is_weapon_threat = weapon_count > 0
+            is_weapon_threat = is_confirmed_weapon
             is_intrusion_threat = intruder_count > 0
 
             if is_weapon_threat:
@@ -850,10 +877,11 @@ class CameraProcessor:
                 cv2.putText(display_frame, f"CRITICAL: {weapon_count} WEAPON DETECTED ({w_name}) - {self.name}",
                             (12, 19), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (255, 255, 255), 2, cv2.LINE_AA)
 
-                # Only save on state change (new weapon appearance) with 2.0s cooldown
-                is_new_weapon = (self.prev_weapon_count == 0 and weapon_count > 0) or (weapon_count > self.prev_weapon_count)
-                if is_new_weapon and (time.time() - self.last_snapshot_time > 2.0):
-                    self.last_snapshot_time = time.time()
+                # Rate-limit weapon incident logging to avoid spamming multiple records for 1 event
+                now = time.time()
+                if not self.weapon_incident_active and (now - self.last_weapon_incident_time > 10.0):
+                    self.weapon_incident_active = True
+                    self.last_weapon_incident_time = now
                     try:
                         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                         evidence_dir = os.path.join(base_dir, 'media', 'evidence')
@@ -870,12 +898,14 @@ class CameraProcessor:
                             source=f"{self.name} ({self.location or 'Camera feed'})",
                             intruder_count=weapon_count,
                             snapshot=f"evidence/{snap_name}",
-                            details=f"Weapon detected on camera #{self.camera_id} with {cached_w[0]['conf']*100:.1f}% confidence."
+                            details=f"Confirmed weapon threat ({w_name}) detected on camera #{self.camera_id} with {cached_w[0]['conf']*100:.1f}% confidence."
                         )
                     except Exception as err:
                         print(f"[CameraProcessor {self.camera_id}] Error logging weapon incident:", err)
+            else:
+                self.weapon_incident_active = False
 
-            elif is_intrusion_threat:
+            if is_intrusion_threat and not is_weapon_threat:
                 cv2.rectangle(display_frame, (0, 0), (640, 28), (0, 0, 220), -1)
                 cv2.putText(display_frame, f"CRITICAL: {intruder_count} INTRUSION EVENT(S) - {self.name}",
                             (12, 19), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (255, 255, 255), 2, cv2.LINE_AA)
