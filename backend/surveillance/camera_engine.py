@@ -225,21 +225,17 @@ def filter_and_suppress_weapons(raw_weapons, detected_persons=None):
     Validates weapon candidates (Knife & Pistol) and applies NMS deduplication.
     
     Validation Criteria:
-    1. Class-Specific Confidence Thresholds:
-       - Knife: Since real knives often reflect light or have lower contrast against backgrounds,
-         knives held within arm's reach of a person (<= 110px) are accepted with conf >= 0.35.
-         Standalone knives away from people require conf >= 0.65.
-       - Pistol: To prevent false alarms on chair corners, shadows, or shirts, pistols near a
-         person require conf >= 0.52. Standalone pistols require conf >= 0.72.
-    2. Physical Dimension Bounds:
-       - Minimum size: width >= 16px, height >= 16px, area >= 300px^2.
-       - Maximum size: area <= 75,000px^2.
-    3. Aspect Ratio:
-       - Rejects extreme thin lines (aspect ratio > 7.0), e.g. curtain seams, cables.
-    4. Person Reach / Arm Reach Association:
-       In 640x480 resolution, an outstretched arm holding a weapon extends up to 110px
-       from the person's torso bounding box.
-    5. Non-Maximum Suppression (IoU > 0.35): Eliminates duplicate boxes on the same weapon.
+    1. Physical Handgun Geometry (PISTOL):
+       - A handgun is a compact palm-sized weapon (area <= 7,000px^2, max dimension <= 95px).
+       - Aspect ratio <= 1.7 (square/L-shape; rejects wide flat cushions and tall human bodies).
+       - Confidence >= 0.73 (eliminates dark fabric folds, cushions, and hair silhouettes).
+    2. Physical Bladed Weapon Geometry (KNIFE):
+       - Knives are elongated bladed tools (area <= 45,000px^2, aspect ratio <= 7.0).
+       - When within arm's reach (<= 120px) of a person: conf >= 0.35.
+       - Standalone knives away from people: conf >= 0.65.
+    3. Person Arm-Reach Proximity Association:
+       In 640x480 resolution, an arm holding a weapon extends within 120px of the torso.
+    4. Non-Maximum Suppression (IoU > 0.35): Eliminates duplicate boxes on the same weapon.
     """
     valid_candidates = []
     for w in raw_weapons:
@@ -249,36 +245,39 @@ def filter_and_suppress_weapons(raw_weapons, detected_persons=None):
         ww = wx2 - wx1
         wh = wy2 - wy1
         area = ww * wh
+        max_dim = max(ww, wh)
+        aspect = max_dim / float(max(1, min(ww, wh)))
 
-        if ww < 16 or wh < 16 or area < 300 or area > 75000:
+        if ww < 16 or wh < 16:
             continue
 
-        aspect = max(ww, wh) / max(1, min(ww, wh))
-        if aspect > 7.0:
-            continue
-
-        # Proximity to person check (arm's reach <= 110px)
+        # Proximity to person check (arm's reach <= 120px)
         near_person = False
         if detected_persons:
             for p in detected_persons:
                 px1, py1, px2, py2 = p['coords']
-                # Check expanded bounding box (within arm's reach ~110px of person)
-                if (wx2 >= px1 - 110 and wx1 <= px2 + 110 and wy2 >= py1 - 110 and wy1 <= py2 + 110):
+                # Check expanded bounding box (within arm's reach ~120px of person)
+                if (wx2 >= px1 - 120 and wx1 <= px2 + 120 and wy2 >= py1 - 120 and wy1 <= py2 + 120):
                     near_person = True
                     break
 
         is_knife = ('KNIFE' in name)
 
-        if near_person:
-            # When wielded by a person:
-            # Knives have minimal false positives on background, so threshold is sensitive (0.35)
-            # Pistols require 0.52 to prevent clothing/chair fold triggers
-            min_conf = 0.35 if is_knife else 0.52
-            if conf < min_conf:
+        if not is_knife:
+            # PISTOL validation:
+            # Compact palm-sized weapon. Rejects pillows/cushions (> 12,000px^2) and human heads (> 10,000px^2)
+            if area > 7000 or max_dim > 95:
+                continue
+            if aspect > 1.7:
+                continue
+            # Real pistols score >= 0.73
+            if conf < 0.73:
                 continue
         else:
-            # Standalone weapon away from any person:
-            min_conf = 0.65 if is_knife else 0.72
+            # KNIFE validation:
+            if area > 45000 or aspect > 7.0:
+                continue
+            min_conf = 0.35 if near_person else 0.65
             if conf < min_conf:
                 continue
 

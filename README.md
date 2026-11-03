@@ -26,10 +26,9 @@ An enterprise-ready, AI-driven Smart CCTV Surveillance and Threat Detection Plat
 ### 3. Weapon & Critical Threat Detection (Knife & Pistol)
 - **Dual-Model Inference:** Leverages `weapon_yolov8n.pt` running at native $640\times 640$ resolution alongside `yolo11n.pt`.
 - **Arm-Reach Spatial Association ($\le 110\text{px}$):** Confirms proximity to a detected person within physical reaching distance ($\le 110\text{px}$), linking weapons directly to wielders while rejecting phantom weapons on distant walls, ceilings, or curtains.
-- **Class-Calibrated Sensitivity:**
-  - **Knives ($\text{conf} \ge 0.35$):** Optimized for low-contrast metallic blades that reflect ambient lighting against light-colored walls.
-  - **Pistols ($\text{conf} \ge 0.52$):** Calibrated to prevent dark furniture corners, chair cushions, and clothing folds from causing false alarms.
-  - **Standalone Items ($> 110\text{px}$):** Require extraordinarily high confidence ($\ge 0.65\text{--}0.72$) to prevent static room textures from triggering alarms.
+- **Class-Calibrated Sensitivity & Physical Geometry:**
+  - **Knives ($\text{conf} \ge 0.35$):** Optimized for bladed weapons held within arm's reach ($\le 120\text{px}$) with aspect ratio $\le 7.0$ and area $\le 45,000\text{px}^2$. Standalone knives require $\text{conf} \ge 0.65$.
+  - **Pistols ($\text{conf} \ge 0.73$):** Enforces compact palm-sized handgun constraints ($\text{area} \le 7,000\text{px}^2$, $\text{max\_dimension} \le 95\text{px}$, $\text{aspect} \le 1.7$). This strictly eliminates large furniture cushions ($\text{area} > 12,000\text{px}^2$) and human heads/hair silhouettes ($\text{area} > 10,000\text{px}^2$) from ever triggering false pistol alarms.
 - **Multi-Frame Temporal Confirmation ($\ge 2$ Consecutive Cycles):** Prevents transient optical noise, hand flicks, or lighting shifts from triggering critical alarms.
 - **Incident Debouncing ($10.0\text{s}$ Cooldown):** Prevents repetitive alert flooding for ongoing single events.
 
