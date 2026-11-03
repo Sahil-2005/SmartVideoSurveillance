@@ -265,19 +265,22 @@ def filter_and_suppress_weapons(raw_weapons, detected_persons=None):
 
         if not is_knife:
             # PISTOL validation:
-            # Compact palm-sized weapon. Rejects pillows/cushions (> 12,000px^2) and human heads (> 10,000px^2)
-            if area > 7000 or max_dim > 95:
+            # Compact palm-sized weapon.
+            # Real pistol in check.jpg: ww=72, wh=68, area=4896.
+            # Rejects pillows/cushions (> 12,000px^2) and human heads (> 10,000px^2)
+            if area > 8500 or max_dim > 105 or ww > 95 or wh > 95:
                 continue
-            if aspect > 1.7:
+            if aspect > 1.8:
                 continue
-            # Real pistols score >= 0.73
-            if conf < 0.73:
+            # Real pistols score >= 0.65
+            if conf < 0.65:
                 continue
         else:
             # KNIFE validation:
-            if area > 45000 or aspect > 7.0:
+            if area > 45000 or aspect > 7.5:
                 continue
-            min_conf = 0.35 if near_person else 0.65
+            # When within arm's reach of a person, allow conf down to 0.25 to detect reflective/angled blades
+            min_conf = 0.25 if near_person else 0.60
             if conf < min_conf:
                 continue
 
@@ -440,7 +443,7 @@ class SharedInferenceWorker:
             )
             if should_run_weapon:
                 try:
-                    w_results = self.weapon_model(frame, conf=0.30, imgsz=640, verbose=False)
+                    w_results = self.weapon_model(frame, conf=0.25, imgsz=640, verbose=False)
                     raw_weapons = []
                     for r in w_results:
                         for box in r.boxes:
@@ -493,6 +496,7 @@ class CameraProcessor:
         self.last_inferred_frame_id = -1
         self.status = "CONNECTING"
         self.last_seen = None
+        self.is_static_image = False
 
         # Detection cache & counts
         self.cached_persons = []
@@ -612,6 +616,7 @@ class CameraProcessor:
             is_file = isinstance(source, str) and not source.startswith(('http://', 'https://', 'rtsp://')) and not is_image
 
             if is_image:
+                self.is_static_image = True
                 img = cv2.imread(source)
                 if img is not None:
                     with self.lock:
@@ -620,7 +625,11 @@ class CameraProcessor:
                         self.status = "ONLINE"
                         self.last_seen = datetime.now()
                     while self.running and not self._need_reconnect:
-                        time.sleep(0.1)
+                        time.sleep(1.0)
+                        with self.lock:
+                            # Keep frame fresh for worker if inference hasn't run yet
+                            if self.last_inferred_frame_id < 0 or (self.raw_frame_id == self.last_inferred_frame_id):
+                                self.raw_frame_id += 1
                 else:
                     with self.lock:
                         self.status = "OFFLINE"
@@ -735,22 +744,24 @@ class CameraProcessor:
                 self.cached_persons = detected_persons
                 self.last_person_seen_time = now
             else:
-                # Grace period: hold previous verified detection for up to 0.7s
-                # to prevent momentary dropouts/flickering when user tilts head, speaks, or blinks
-                if now - self.last_person_seen_time > 0.7:
+                # Grace period: hold previous verified detection for up to 0.7s on live feeds
+                # On static images, maintain verified detections
+                if not self.is_static_image and (now - self.last_person_seen_time > 0.7):
                     self.cached_persons = []
 
             # Multi-frame temporal confirmation for weapons:
-            # Prevents single-frame glitches, optical artifacts, or lighting flicker from causing false alerts
+            # On live streams: requires 2 consecutive frames to prevent single-frame glitches/flicker
+            # On static uploaded images: confirms immediately on single frame
             if detected_weapons:
                 self.weapon_threat_counter = min(5, self.weapon_threat_counter + 1)
                 self.last_weapon_seen_time = now
-                if self.weapon_threat_counter >= 2:
+                if self.is_static_image or self.weapon_threat_counter >= 2:
                     self.cached_weapons = detected_weapons
             else:
-                self.weapon_threat_counter = max(0, self.weapon_threat_counter - 1)
-                if self.weapon_threat_counter == 0 or (now - self.last_weapon_seen_time > 0.6):
-                    self.cached_weapons = []
+                if not self.is_static_image:
+                    self.weapon_threat_counter = max(0, self.weapon_threat_counter - 1)
+                    if self.weapon_threat_counter == 0 or (now - self.last_weapon_seen_time > 0.6):
+                        self.cached_weapons = []
 
             self.last_inferred_frame_id = frame_idx
 
@@ -771,8 +782,9 @@ class CameraProcessor:
                 cached_p = list(self.cached_persons)
                 cached_w = list(self.cached_weapons)
                 weapon_counter = self.weapon_threat_counter
+                is_static = self.is_static_image
 
-            if raw_frame is None or status != "ONLINE":
+            if raw_frame is None or status in ("OFFLINE", "ERROR", "DISCONNECTED"):
                 time.sleep(0.05)
                 continue
 
@@ -796,8 +808,8 @@ class CameraProcessor:
                     'is_intruder': is_in_zone
                 })
 
-            # Weapon confirmation: require at least 2 consecutive detections to eliminate glitches
-            is_confirmed_weapon = (len(cached_w) > 0 and weapon_counter >= 2)
+            # Weapon confirmation: require 2 detections on video, immediate on static images
+            is_confirmed_weapon = (len(cached_w) > 0 and (is_static or weapon_counter >= 2))
             weapon_count = len(cached_w) if is_confirmed_weapon else 0
 
             # 1. Render Restricted Zone overlay
