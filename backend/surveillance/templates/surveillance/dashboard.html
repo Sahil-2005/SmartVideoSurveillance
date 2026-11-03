@@ -967,7 +967,12 @@
     }
 
     // --- Interactive Zone Management on Focused Cam ---
+    let isDrawModeActive = false;
+    let isDrawing = false;
+    let startX = 0, startY = 0;
+
     async function setFocusedCameraZone(zoneName) {
+        exitDrawMode();
         try {
             let formData = new FormData();
             formData.append('zone', zoneName);
@@ -978,7 +983,7 @@
                 body: formData
             });
             if (res.ok) {
-                alert(`Perimeter zone updated to: ${zoneName.toUpperCase()}`);
+                showZoneNotification(`Perimeter zone updated to: ${zoneName.toUpperCase()}`);
             }
         } catch (e) {
             console.error(e);
@@ -986,10 +991,200 @@
     }
 
     function toggleFocusDrawMode() {
+        if (isDrawModeActive) {
+            exitDrawMode();
+        } else {
+            enterDrawMode();
+        }
+    }
+
+    function enterDrawMode() {
+        isDrawModeActive = true;
+        const prompt = document.getElementById('focus-draw-prompt');
+        const canvas = document.getElementById('focus-zone-canvas');
+        const drawBtn = document.getElementById('btn-draw-focus-zone');
+
+        if (prompt) {
+            prompt.style.display = 'block';
+            prompt.innerHTML = '<i class="fa-solid fa-crosshairs"></i> Drag a rectangle on the video to define the restricted zone';
+            prompt.style.background = '#2563eb';
+            prompt.style.color = '#ffffff';
+        }
+        if (drawBtn) {
+            drawBtn.style.background = '#2563eb';
+            drawBtn.style.color = '#ffffff';
+            drawBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> Cancel Drawing';
+        }
+        if (canvas) {
+            canvas.style.pointerEvents = 'auto';
+            canvas.style.cursor = 'crosshair';
+            canvas.width = canvas.offsetWidth || 640;
+            canvas.height = canvas.offsetHeight || 360;
+        }
+    }
+
+    function exitDrawMode() {
+        isDrawModeActive = false;
+        isDrawing = false;
+        const prompt = document.getElementById('focus-draw-prompt');
+        const canvas = document.getElementById('focus-zone-canvas');
+        const drawBtn = document.getElementById('btn-draw-focus-zone');
+
+        if (prompt) prompt.style.display = 'none';
+        if (drawBtn) {
+            drawBtn.style.background = '';
+            drawBtn.style.color = 'var(--primary-blue)';
+            drawBtn.innerHTML = '<i class="fa-solid fa-pen-ruler"></i> Draw Zone';
+        }
+        if (canvas) {
+            canvas.style.pointerEvents = 'none';
+            canvas.style.cursor = 'default';
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    }
+
+    function showZoneNotification(msg) {
         const prompt = document.getElementById('focus-draw-prompt');
         if (prompt) {
-            prompt.style.display = prompt.style.display === 'none' ? 'block' : 'none';
+            prompt.style.display = 'block';
+            prompt.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${msg}`;
+            prompt.style.background = '#10b981';
+            prompt.style.color = '#ffffff';
+            setTimeout(() => {
+                if (!isDrawModeActive) prompt.style.display = 'none';
+            }, 2500);
         }
+    }
+
+    function initFocusZoneCanvas() {
+        const canvas = document.getElementById('focus-zone-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+
+        function getCanvasPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
+            const clientY = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : e.clientY;
+            return {
+                x: Math.max(0, Math.min(canvas.width, (clientX - rect.left) * (canvas.width / rect.width))),
+                y: Math.max(0, Math.min(canvas.height, (clientY - rect.top) * (canvas.height / rect.height)))
+            };
+        }
+
+        function onStart(e) {
+            if (!isDrawModeActive) return;
+            e.preventDefault();
+            canvas.width = canvas.offsetWidth || 640;
+            canvas.height = canvas.offsetHeight || 360;
+            const pos = getCanvasPos(e);
+            startX = pos.x;
+            startY = pos.y;
+            isDrawing = true;
+        }
+
+        function onMove(e) {
+            if (!isDrawing || !isDrawModeActive) return;
+            e.preventDefault();
+            const pos = getCanvasPos(e);
+            const currentX = pos.x;
+            const currentY = pos.y;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const rx = Math.min(startX, currentX);
+            const ry = Math.min(startY, currentY);
+            const rw = Math.abs(currentX - startX);
+            const rh = Math.abs(currentY - startY);
+
+            // Shaded translucent fill
+            ctx.fillStyle = 'rgba(245, 158, 11, 0.35)';
+            ctx.fillRect(rx, ry, rw, rh);
+
+            // Neon perimeter stroke
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 2.5;
+            ctx.setLineDash([6, 4]);
+            ctx.strokeRect(rx, ry, rw, rh);
+
+            // Dimension badge
+            ctx.fillStyle = '#f59e0b';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText(`CUSTOM ZONE (${Math.round(rw)}x${Math.round(rh)})`, rx + 6, Math.max(16, ry - 6));
+        }
+
+        async function onEnd(e) {
+            if (!isDrawing || !isDrawModeActive) return;
+            e.preventDefault();
+            isDrawing = false;
+
+            const rect = canvas.getBoundingClientRect();
+            let endClientX = e.clientX;
+            let endClientY = e.clientY;
+            if (e.changedTouches && e.changedTouches.length > 0) {
+                endClientX = e.changedTouches[0].clientX;
+                endClientY = e.changedTouches[0].clientY;
+            }
+
+            const endX = Math.max(0, Math.min(canvas.width, (endClientX - rect.left) * (canvas.width / rect.width)));
+            const endY = Math.max(0, Math.min(canvas.height, (endClientY - rect.top) * (canvas.height / rect.height)));
+
+            const rx = Math.min(startX, endX);
+            const ry = Math.min(startY, endY);
+            const rw = Math.abs(endX - startX);
+            const rh = Math.abs(endY - startY);
+
+            if (rw < 15 || rh < 15) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                return;
+            }
+
+            // Convert to native 640x480 surveillance coordinates
+            const scaleX = 640.0 / canvas.width;
+            const scaleY = 480.0 / canvas.height;
+
+            const x1 = Math.round(rx * scaleX);
+            const y1 = Math.round(ry * scaleY);
+            const x2 = Math.round((rx + rw) * scaleX);
+            const y2 = Math.round((ry + rh) * scaleY);
+
+            try {
+                let formData = new FormData();
+                formData.append('zone', 'custom');
+                formData.append('x1', x1);
+                formData.append('y1', y1);
+                formData.append('x2', x2);
+                formData.append('y2', y2);
+
+                const res = await fetch(`/api/cameras/${focusedCamId}/set-zone`, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                    body: formData
+                });
+
+                if (res.ok) {
+                    showZoneNotification(`Custom Zone Set: (${x1}, ${y1}) to (${x2}, ${y2})`);
+                    setTimeout(() => {
+                        exitDrawMode();
+                    }, 1200);
+                } else {
+                    alert('Error saving custom zone.');
+                    exitDrawMode();
+                }
+            } catch (err) {
+                console.error('Error saving custom zone:', err);
+                exitDrawMode();
+            }
+        }
+
+        canvas.addEventListener('mousedown', onStart);
+        canvas.addEventListener('mousemove', onMove);
+        canvas.addEventListener('mouseup', onEnd);
+        canvas.addEventListener('mouseleave', () => { if (isDrawing) onEnd(); });
+
+        canvas.addEventListener('touchstart', onStart, { passive: false });
+        canvas.addEventListener('touchmove', onMove, { passive: false });
+        canvas.addEventListener('touchend', onEnd, { passive: false });
     }
 
     // --- Real-time Polling for Metrics and Alert States ---
@@ -1197,4 +1392,5 @@
     setInterval(fetchStats, 1000);
     fetchStats();
     initBottomCharts();
+    initFocusZoneCanvas();
 {% endblock %}

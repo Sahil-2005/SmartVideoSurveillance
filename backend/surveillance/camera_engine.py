@@ -48,35 +48,47 @@ def get_zone_polygon(zone_mode, zone_config=None):
 
 def is_person_in_zone(x1, y1, x2, y2, zone_polygon):
     """
-    Precision Head/Upper-Body & Majority Overlap Detection:
-    - Primary Anchor: Head & Face (upper 22% center of mass).
-    - Secondary Anchor: Torso / Chest center.
-    - Volumetric Overlap: Requires >= 45% of total body volume inside.
+    Intelligent Anatomical & Volumetric Intrusion Detection:
+    - Eliminates false alarms caused by empty bounding-box corners grazing a zone.
+    - True intrusion is confirmed if ANY of the following holds:
+      1. Primary Anchor (Head / Face center): cv2.pointPolygonTest >= 0
+      2. Secondary Anchor (Torso / Chest center): cv2.pointPolygonTest >= 0
+      3. Base Anchor (Ground stance / Feet): cv2.pointPolygonTest >= 0
+      4. Lateral Flanks (Mid-height torso reach at y1 + 0.50*h):
+         Left flank (x1 + 0.20*w) or Right flank (x2 - 0.20*w)
+      5. Significant Volumetric Overlap: >= 25% of body grid inside zone
     """
     if zone_polygon is None:
-        return False, (int((x1 + x2) / 2), int(y1 + (y2 - y1) * 0.22))
+        return False, (int((x1 + x2) / 2), int(y1 + (y2 - y1) * 0.25))
         
     w = max(1, x2 - x1)
     h = max(1, y2 - y1)
+    cx = int((x1 + x2) / 2)
     
-    # 1. Head / Face Anchor
-    head_x = int((x1 + x2) / 2)
-    head_y = int(y1 + h * 0.22)
-    if cv2.pointPolygonTest(zone_polygon, (head_x, head_y), False) >= 0:
-        return True, (head_x, head_y)
+    # 1. Primary Head / Face Anchor (top 25% center)
+    head_y = int(y1 + h * 0.25)
+    if cv2.pointPolygonTest(zone_polygon, (cx, head_y), False) >= 0:
+        return True, (cx, head_y)
         
-    # 2. Torso Center of Mass Anchor
-    torso_x = head_x
+    # 2. Torso Center of Mass Anchor (middle 50% center)
     torso_y = int(y1 + h * 0.50)
-    if cv2.pointPolygonTest(zone_polygon, (torso_x, torso_y), False) >= 0:
-        return True, (head_x, head_y)
+    if cv2.pointPolygonTest(zone_polygon, (cx, torso_y), False) >= 0:
+        return True, (cx, torso_y)
         
-    # 3. Ground / Base Stance Anchor
+    # 3. Ground Stance / Feet Base Anchor (bottom 5% center)
     base_y = min(max(y2 - 15, 0), 479)
-    if cv2.pointPolygonTest(zone_polygon, (head_x, base_y), False) >= 0:
-        return True, (head_x, head_y)
+    if cv2.pointPolygonTest(zone_polygon, (cx, base_y), False) >= 0:
+        return True, (cx, base_y)
 
-    # 4. Majority Overlap Check (>= 45% of body volume)
+    # 4. Lateral Torso / Arm Breach (tested at mid-torso height, NOT empty top corners!)
+    left_flank = (int(x1 + w * 0.20), torso_y)
+    right_flank = (int(x2 - w * 0.20), torso_y)
+    if cv2.pointPolygonTest(zone_polygon, left_flank, False) >= 0:
+        return True, left_flank
+    if cv2.pointPolygonTest(zone_polygon, right_flank, False) >= 0:
+        return True, right_flank
+
+    # 5. Volumetric Grid Overlap (>= 25% of body volume)
     gx_start = x1 + int(w * 0.05)
     gx_end = x2 - int(w * 0.05)
     gy_start = y1 + int(h * 0.05)
@@ -86,17 +98,213 @@ def is_person_in_zone(x1, y1, x2, y2, zone_polygon):
     total_pts = 25
     x_steps = [int(gx_start + i * (gx_end - gx_start) / 4) for i in range(5)]
     y_steps = [int(gy_start + j * (gy_end - gy_start) / 4) for j in range(5)]
+    deepest_pt = None
+    max_dist = -999999
     
     for px in x_steps:
         for py in y_steps:
-            if cv2.pointPolygonTest(zone_polygon, (px, py), False) >= 0:
+            dist = cv2.pointPolygonTest(zone_polygon, (px, py), True)
+            if dist >= 0:
                 inside_pts += 1
+                if dist > max_dist:
+                    max_dist = dist
+                    deepest_pt = (px, py)
                 
     overlap_ratio = inside_pts / float(total_pts)
-    if overlap_ratio >= 0.45:
-        return True, (head_x, head_y)
+    if overlap_ratio >= 0.25:
+        return True, deepest_pt or (cx, head_y)
         
-    return False, (head_x, head_y)
+    return False, (cx, head_y)
+
+
+def is_complete_person(x1, y1, x2, y2, conf, frame):
+    """
+    Validates whether a detected bounding box represents a genuine, complete human person
+    rather than background objects, a hand, an isolated arm, or visual noise.
+    
+    Validation Criteria:
+    1. Confidence threshold: conf >= 0.40.
+    2. Physical scale & area: height >= 90px, width >= 40px, area >= 5000px^2 in 640x480 frame.
+    3. Aspect Ratio: height / width >= 0.60 and <= 4.5.
+    4. Complete Person Stance vs Hand Discriminator:
+       - Standing / walking full body: aspect >= 1.40 and height >= 90px.
+       - Seated upper body (webcam): height >= 120px and aspect >= 0.65.
+       - High confidence occupant: conf >= 0.65, height >= 100px, width >= 60px.
+    5. Hand Rejection: Small boxes (< 18,000 px) with low-medium confidence are rejected.
+    """
+    w = x2 - x1
+    h = y2 - y1
+    if w <= 0 or h <= 0:
+        return False
+        
+    # 1. Minimum confidence threshold
+    if conf < 0.40:
+        return False
+
+    # 2. Minimum physical dimensions (in 640x480 resolution)
+    if h < 90 or w < 40 or (w * h) < 5000:
+        return False
+
+    # 3. Valid Human Aspect Ratio
+    aspect = h / float(w)
+    if aspect < 0.60 or aspect > 4.5:
+        return False
+
+    # 4. Complete Person Geometry:
+    is_full_body = (aspect >= 1.40 and h >= 90)
+    is_seated = (h >= 120 and aspect >= 0.65)
+    is_high_conf = (conf >= 0.65 and h >= 100 and w >= 60)
+    if not (is_full_body or is_seated or is_high_conf):
+        return False
+
+    # 5. Hand Rejection:
+    # A hand or isolated limb proposal is small (< 18,000 px^2) and lacks full-body aspect
+    if (w * h) < 18000 and conf < 0.65:
+        if not is_full_body:
+            return False
+
+    return True
+
+
+def filter_and_suppress_persons(raw_candidates, frame):
+    """
+    Applies complete person verification and Non-Maximum Suppression (NMS) /
+    Containment deduplication. Eliminates duplicate boxes on the same person
+    and rejects false positive objects / hands.
+    """
+    valid_candidates = []
+    for cand in raw_candidates:
+        x1, y1, x2, y2 = cand['coords']
+        conf = cand['conf']
+        if is_complete_person(x1, y1, x2, y2, conf, frame):
+            valid_candidates.append(cand)
+
+    if not valid_candidates:
+        return []
+
+    # Sort by confidence descending
+    valid_candidates.sort(key=lambda c: c['conf'], reverse=True)
+
+    final_persons = []
+    for cand in valid_candidates:
+        cx1, cy1, cx2, cy2 = cand['coords']
+        cand_area = max(1, (cx2 - cx1) * (cy2 - cy1))
+        is_duplicate = False
+
+        for accepted in final_persons:
+            ax1, ay1, ax2, ay2 = accepted['coords']
+            acc_area = max(1, (ax2 - ax1) * (ay2 - ay1))
+
+            # Calculate intersection
+            ix1 = max(cx1, ax1)
+            iy1 = max(cy1, ay1)
+            ix2 = min(cx2, ax2)
+            iy2 = min(cy2, ay2)
+
+            inter_w = max(0, ix2 - ix1)
+            inter_h = max(0, iy2 - iy1)
+            inter_area = inter_w * inter_h
+
+            if inter_area > 0:
+                iou = inter_area / float(cand_area + acc_area - inter_area)
+                containment = inter_area / float(min(cand_area, acc_area))
+                # Suppress if significant IoU (> 0.30) or if one box is mostly inside another (> 0.45)
+                if iou > 0.30 or containment > 0.45:
+                    is_duplicate = True
+                    break
+
+        if not is_duplicate:
+            final_persons.append(cand)
+
+    return final_persons
+
+
+def filter_and_suppress_weapons(raw_weapons, detected_persons=None):
+    """
+    Validates weapon candidates (Knife & Pistol) and applies NMS deduplication.
+    
+    Validation Criteria:
+    1. Confidence Thresholds:
+       - If near a person: conf >= 0.45 (reliably detects pistols and knives held by individuals).
+       - If standalone/no person: conf >= 0.70 (eliminates spurious items on empty walls/curtains).
+    2. Physical Dimension Bounds:
+       - Minimum size: width >= 20px, height >= 20px, area >= 400px^2.
+       - Maximum size: area <= 80,000px^2 (cannot cover the whole room).
+    3. Aspect Ratio:
+       - Rejects extreme thin lines (aspect ratio > 7.0), e.g. curtain edges, cables, seams.
+    4. Person Proximity / Context Association:
+       If persons are detected, checks if the weapon is within reaching proximity (130px)
+       of any detected person. Rejects low-confidence detections floating in empty areas.
+    5. Non-Maximum Suppression (IoU > 0.35): Eliminates duplicate boxes on the same weapon.
+    """
+    valid_candidates = []
+    for w in raw_weapons:
+        wx1, wy1, wx2, wy2 = w['coords']
+        conf = w['conf']
+        ww = wx2 - wx1
+        wh = wy2 - wy1
+        area = ww * wh
+
+        if ww < 20 or wh < 20 or area < 400 or area > 80000:
+            continue
+
+        aspect = max(ww, wh) / max(1, min(ww, wh))
+        if aspect > 7.0:
+            continue
+
+        # Proximity to person check:
+        # If persons are detected, a weapon threat must be near or carried by a person
+        if detected_persons:
+            near_person = False
+            for p in detected_persons:
+                px1, py1, px2, py2 = p['coords']
+                # Check expanded bounding box (within 130px radius of person)
+                if (wx2 >= px1 - 130 and wx1 <= px2 + 130 and wy2 >= py1 - 130 and wy1 <= py2 + 130):
+                    near_person = True
+                    break
+            if near_person and conf < 0.45:
+                continue
+            if not near_person and conf < 0.70:
+                continue
+        else:
+            if conf < 0.70:
+                continue
+
+        valid_candidates.append(w)
+
+    if not valid_candidates:
+        return []
+
+    # Sort descending by confidence
+    valid_candidates.sort(key=lambda x: x['conf'], reverse=True)
+
+    # NMS Deduplication
+    final_weapons = []
+    for cand in valid_candidates:
+        cx1, cy1, cx2, cy2 = cand['coords']
+        cand_area = max(1, (cx2 - cx1) * (cy2 - cy1))
+        is_dup = False
+
+        for accepted in final_weapons:
+            ax1, ay1, ax2, ay2 = accepted['coords']
+            acc_area = max(1, (ax2 - ax1) * (ay2 - ay1))
+
+            ix1 = max(cx1, ax1)
+            iy1 = max(cy1, ay1)
+            ix2 = min(cx2, ax2)
+            iy2 = min(cy2, ay2)
+
+            inter_area = max(0, ix2 - ix1) * max(0, iy2 - iy1)
+            if inter_area > 0:
+                iou = inter_area / float(cand_area + acc_area - inter_area)
+                if iou > 0.35:
+                    is_dup = True
+                    break
+
+        if not is_dup:
+            final_weapons.append(cand)
+
+    return final_weapons
 
 
 class SharedInferenceWorker:
@@ -194,18 +402,20 @@ class SharedInferenceWorker:
             detected_persons = []
             detected_weapons = []
 
-            # 1. Person Detection (classes=[0] for person)
+            # 1. Person Detection (classes=[0] for person) with Complete Person Filtering & NMS
             if self.person_model and target_proc.person_detection_enabled:
                 try:
-                    p_results = self.person_model(frame, classes=[0], imgsz=480, verbose=False)
+                    p_results = self.person_model(frame, classes=[0], conf=0.40, imgsz=480, verbose=False)
+                    raw_candidates = []
                     for r in p_results:
                         for box in r.boxes:
                             x1, y1, x2, y2 = map(int, box.xyxy[0])
                             conf = float(box.conf[0])
-                            detected_persons.append({
+                            raw_candidates.append({
                                 'coords': (x1, y1, x2, y2),
                                 'conf': conf
                             })
+                    detected_persons = filter_and_suppress_persons(raw_candidates, frame)
                 except Exception as e:
                     print(f"[InferenceWorker] Person detection error on Cam {target_proc.camera_id}: {e}")
 
@@ -220,17 +430,19 @@ class SharedInferenceWorker:
             if should_run_weapon:
                 try:
                     w_results = self.weapon_model(frame, conf=0.40, imgsz=480, verbose=False)
+                    raw_weapons = []
                     for r in w_results:
                         for box in r.boxes:
                             wx1, wy1, wx2, wy2 = map(int, box.xyxy[0])
                             w_conf = float(box.conf[0])
                             cls_id = int(box.cls[0])
                             cls_name = self.weapon_model.names.get(cls_id, 'weapon').upper()
-                            detected_weapons.append({
+                            raw_weapons.append({
                                 'coords': (wx1, wy1, wx2, wy2),
                                 'conf': w_conf,
                                 'name': cls_name
                             })
+                    detected_weapons = filter_and_suppress_weapons(raw_weapons, detected_persons)
                 except Exception as e:
                     print(f"[InferenceWorker] Weapon detection error on Cam {target_proc.camera_id}: {e}")
 
@@ -274,9 +486,16 @@ class CameraProcessor:
         # Detection cache & counts
         self.cached_persons = []
         self.cached_weapons = []
+        self.last_person_seen_time = 0
         self.person_count = 0
         self.intruder_count = 0
         self.weapon_count = 0
+
+        # Weapon temporal confirmation & incident debounce
+        self.weapon_threat_counter = 0
+        self.last_weapon_seen_time = 0
+        self.weapon_incident_active = False
+        self.last_weapon_incident_time = 0
 
         # State change tracking to prevent duplicate snapshots
         self.prev_intruder_count = 0
@@ -499,8 +718,17 @@ class CameraProcessor:
 
     def receive_inference_results(self, detected_persons, detected_weapons, frame_idx):
         """Called by SharedInferenceWorker with fresh detection results."""
+        now = time.time()
         with self.lock:
-            self.cached_persons = detected_persons
+            if detected_persons:
+                self.cached_persons = detected_persons
+                self.last_person_seen_time = now
+            else:
+                # Grace period: hold previous verified detection for up to 0.7s
+                # to prevent momentary dropouts/flickering when user tilts head, speaks, or blinks
+                if now - self.last_person_seen_time > 0.7:
+                    self.cached_persons = []
+
             self.cached_weapons = detected_weapons
             self.last_inferred_frame_id = frame_idx
 
@@ -561,11 +789,12 @@ class CameraProcessor:
 
                 # Zone label badge
                 pts = zone_polygon
-                min_x = max(10, int(np.min(pts[:, 0])))
-                min_y = max(30, int(np.min(pts[:, 1])) + 28)
                 label = f"ZONE: {zone_mode.upper()} [BREACH!]" if intruder_count > 0 else f"ZONE: {zone_mode.upper()}"
-                cv2.rectangle(display_frame, (min_x, min_y - 24), (min_x + 210, min_y), border_color, -1)
-                cv2.putText(display_frame, label, (min_x + 6, min_y - 7), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (255, 255, 255), 1, cv2.LINE_AA)
+                (lw, lh), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.42, 1)
+                min_x = max(10, min(630 - lw - 12, int(np.min(pts[:, 0]))))
+                min_y = max(26, min(470, int(np.min(pts[:, 1])) + 24))
+                cv2.rectangle(display_frame, (min_x, min_y - 20), (min_x + lw + 12, min_y), border_color, -1)
+                cv2.putText(display_frame, label, (min_x + 6, min_y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (255, 255, 255), 1, cv2.LINE_AA)
 
             # 2. Render Person Bounding Boxes
             for p in detected_persons_with_zone:
