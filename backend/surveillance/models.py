@@ -25,6 +25,7 @@ class Camera(models.Model):
     zone_config = models.JSONField(default=dict, blank=True)
     person_detection = models.BooleanField(default=True)
     weapon_detection = models.BooleanField(default=True)
+    fire_smoke_detection = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     last_seen = models.DateTimeField(null=True, blank=True)

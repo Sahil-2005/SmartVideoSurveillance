@@ -315,6 +315,59 @@ def filter_and_suppress_weapons(raw_weapons, detected_persons=None):
     return final_weapons
 
 
+def filter_and_suppress_fire_smoke(raw_candidates):
+    """
+    Validates fire and smoke candidates and applies NMS deduplication.
+    
+    Validation Criteria:
+    1. Confidence threshold:
+       - FIRE: conf >= 0.35 (combustion / flame)
+       - SMOKE: conf >= 0.38 (smoke plume / haze)
+    2. Area scale: between 400px^2 and 260,000px^2 (filters out single-pixel glints)
+    3. Non-Maximum Suppression (IoU > 0.35)
+    """
+    valid = []
+    for c in raw_candidates:
+        x1, y1, x2, y2 = c['coords']
+        conf = c['conf']
+        name = c.get('name', '').upper()
+        w = x2 - x1
+        h = y2 - y1
+        area = w * h
+        if w < 16 or h < 16 or area < 400 or area > 260000:
+            continue
+        min_conf = 0.35 if 'FIRE' in name else 0.38
+        if conf < min_conf:
+            continue
+        valid.append(c)
+
+    if not valid:
+        return []
+
+    valid.sort(key=lambda x: x['conf'], reverse=True)
+    final_hazards = []
+    for cand in valid:
+        cx1, cy1, cx2, cy2 = cand['coords']
+        cand_area = max(1, (cx2 - cx1) * (cy2 - cy1))
+        is_dup = False
+        for acc in final_hazards:
+            ax1, ay1, ax2, ay2 = acc['coords']
+            acc_area = max(1, (ax2 - ax1) * (ay2 - ay1))
+            ix1, iy1 = max(cx1, ax1), max(cy1, ay1)
+            ix2, iy2 = min(cx2, ax2), min(cy2, ay2)
+            inter_w = max(0, ix2 - ix1)
+            inter_h = max(0, iy2 - iy1)
+            inter_area = inter_w * inter_h
+            if inter_area > 0:
+                iou = inter_area / float(cand_area + acc_area - inter_area)
+                if iou > 0.35:
+                    is_dup = True
+                    break
+        if not is_dup:
+            final_hazards.append(cand)
+    return final_hazards
+
+
 class SharedInferenceWorker:
     """
     Dedicated worker thread executing shared YOLO inference with fair
@@ -334,6 +387,7 @@ class SharedInferenceWorker:
     def __init__(self):
         self.person_model = None
         self.weapon_model = None
+        self.fire_smoke_model = None
         self.registered_processors = []  # list of CameraProcessor references
         self.lock = threading.Lock()
         self.running = False
@@ -352,6 +406,7 @@ class SharedInferenceWorker:
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             person_pt = os.path.join(base_dir, 'yolo11n.pt')
             weapon_pt = os.path.join(base_dir, 'weapon_yolov8n.pt')
+            fire_smoke_pt = os.path.join(base_dir, 'fire_smoke_yolov8n.pt')
 
             try:
                 self.person_model = YOLO(person_pt if os.path.exists(person_pt) else 'yolo11n.pt')
@@ -364,6 +419,12 @@ class SharedInferenceWorker:
             except Exception as e:
                 print(f"[InferenceWorker] Error loading weapon model: {e}")
                 self.weapon_model = None
+
+            try:
+                self.fire_smoke_model = YOLO(fire_smoke_pt if os.path.exists(fire_smoke_pt) else 'fire_smoke_yolov8n.pt')
+            except Exception as e:
+                print(f"[InferenceWorker] Error loading fire/smoke model: {e}")
+                self.fire_smoke_model = None
 
             self.thread = threading.Thread(target=self._run_loop, name="InferenceWorkerThread", daemon=True)
             self.thread.start()
@@ -407,8 +468,9 @@ class SharedInferenceWorker:
             frame, frame_idx = frame_data
             self._inference_counter += 1
 
-            detected_persons = []
-            detected_weapons = []
+            detected_persons = None
+            detected_weapons = None
+            detected_fire_smoke = None
 
             # 1. Person Detection (classes=[0] for person) with Complete Person Filtering & NMS
             if self.person_model and target_proc.person_detection_enabled:
@@ -426,15 +488,25 @@ class SharedInferenceWorker:
                     detected_persons = filter_and_suppress_persons(raw_candidates, frame)
                 except Exception as e:
                     print(f"[InferenceWorker] Person detection error on Cam {target_proc.camera_id}: {e}")
+                    detected_persons = []
 
-            # 2. Weapon Detection (Knife & Pistol)
-            # Efficient CPU scheduling: run weapon detection if enabled and
-            # either a person is detected or on alternate cycles
+            # Determine interleaved auxiliary model schedule
+            # Guaranteed: on any live tick, AT MOST 1 auxiliary model runs!
+            is_static = target_proc.is_static_image
+            cycle = self._inference_counter % 2
+            
             should_run_weapon = (
                 self.weapon_model and 
                 target_proc.weapon_detection_enabled and 
-                (len(detected_persons) > 0 or (self._inference_counter % 2 == 0))
+                (is_static or (cycle == 0 and (detected_persons or (self._inference_counter % 4 == 0))))
             )
+            should_run_fire = (
+                self.fire_smoke_model and 
+                target_proc.fire_smoke_detection_enabled and 
+                (is_static or (cycle == 1))
+            )
+
+            # 2. Weapon Detection (Knife & Pistol)
             if should_run_weapon:
                 try:
                     w_results = self.weapon_model(frame, conf=0.20, imgsz=640, verbose=False)
@@ -450,12 +522,34 @@ class SharedInferenceWorker:
                                 'conf': w_conf,
                                 'name': cls_name
                             })
-                    detected_weapons = filter_and_suppress_weapons(raw_weapons, detected_persons)
+                    detected_weapons = filter_and_suppress_weapons(raw_weapons, detected_persons or [])
                 except Exception as e:
                     print(f"[InferenceWorker] Weapon detection error on Cam {target_proc.camera_id}: {e}")
+                    detected_weapons = []
+
+            # 3. Fire & Smoke Detection (D-Fire YOLOv8 Nano)
+            if should_run_fire:
+                try:
+                    fs_results = self.fire_smoke_model(frame, conf=0.25, imgsz=480, verbose=False)
+                    raw_fs = []
+                    for r in fs_results:
+                        for box in r.boxes:
+                            fx1, fy1, fx2, fy2 = map(int, box.xyxy[0])
+                            f_conf = float(box.conf[0])
+                            cls_id = int(box.cls[0])
+                            cls_name = self.fire_smoke_model.names.get(cls_id, 'fire').upper()
+                            raw_fs.append({
+                                'coords': (fx1, fy1, fx2, fy2),
+                                'conf': f_conf,
+                                'name': cls_name
+                            })
+                    detected_fire_smoke = filter_and_suppress_fire_smoke(raw_fs)
+                except Exception as e:
+                    print(f"[InferenceWorker] Fire/smoke detection error on Cam {target_proc.camera_id}: {e}")
+                    detected_fire_smoke = []
 
             # Feed detection results back to camera processor
-            target_proc.receive_inference_results(detected_persons, detected_weapons, frame_idx)
+            target_proc.receive_inference_results(detected_persons, detected_weapons, detected_fire_smoke, frame_idx)
 
 
 class CameraProcessor:
@@ -465,7 +559,8 @@ class CameraProcessor:
     """
 
     def __init__(self, camera_id, name, stream_url, camera_type='ip_webcam', location='',
-                 zone_mode='right', zone_config=None, person_detection=True, weapon_detection=True):
+                 zone_mode='right', zone_config=None, person_detection=True, weapon_detection=True,
+                 fire_smoke_detection=True):
         self.camera_id = camera_id
         self.name = name
         self.stream_url = str(stream_url).strip()
@@ -476,6 +571,7 @@ class CameraProcessor:
         self.zone_config = zone_config or {'x1': 320, 'y1': 0, 'x2': 640, 'y2': 480}
         self.person_detection_enabled = person_detection
         self.weapon_detection_enabled = weapon_detection
+        self.fire_smoke_detection_enabled = fire_smoke_detection
 
         # Thread synchronization
         self.lock = threading.Lock()
@@ -495,16 +591,24 @@ class CameraProcessor:
         # Detection cache & counts
         self.cached_persons = []
         self.cached_weapons = []
+        self.cached_fire_smoke = []
         self.last_person_seen_time = 0
         self.person_count = 0
         self.intruder_count = 0
         self.weapon_count = 0
+        self.fire_smoke_count = 0
 
         # Weapon temporal confirmation & incident debounce
         self.weapon_threat_counter = 0
         self.last_weapon_seen_time = 0
         self.weapon_incident_active = False
         self.last_weapon_incident_time = 0
+
+        # Fire & Smoke temporal confirmation & incident debounce
+        self.fire_smoke_threat_counter = 0
+        self.last_fire_smoke_seen_time = 0
+        self.fire_incident_active = False
+        self.last_fire_incident_time = 0
 
         # State change tracking to prevent duplicate snapshots
         self.prev_intruder_count = 0
@@ -538,7 +642,8 @@ class CameraProcessor:
         print(f"[CameraProcessor {self.camera_id}] Stopped.")
 
     def update_settings(self, name=None, stream_url=None, location=None, zone_mode=None,
-                        zone_config=None, person_detection=None, weapon_detection=None):
+                        zone_config=None, person_detection=None, weapon_detection=None,
+                        fire_smoke_detection=None):
         with self.lock:
             if name is not None:
                 self.name = name
@@ -556,6 +661,8 @@ class CameraProcessor:
                 self.person_detection_enabled = person_detection
             if weapon_detection is not None:
                 self.weapon_detection_enabled = weapon_detection
+            if fire_smoke_detection is not None:
+                self.fire_smoke_detection_enabled = fire_smoke_detection
 
     def _resolve_capture_source(self):
         """Parse source url into int (for webcam) or string (for URL/file)."""
@@ -730,32 +837,54 @@ class CameraProcessor:
             frame_id = self.raw_frame_id
         return frame_copy, frame_id
 
-    def receive_inference_results(self, detected_persons, detected_weapons, frame_idx):
+    def receive_inference_results(self, detected_persons, detected_weapons, detected_fire_smoke, frame_idx):
         """Called by SharedInferenceWorker with fresh detection results."""
         now = time.time()
         with self.lock:
-            if detected_persons:
-                self.cached_persons = detected_persons
-                self.last_person_seen_time = now
+            if detected_persons is not None:
+                if detected_persons:
+                    self.cached_persons = detected_persons
+                    self.last_person_seen_time = now
+                else:
+                    if not self.is_static_image and (now - self.last_person_seen_time > 0.7):
+                        self.cached_persons = []
             else:
-                # Grace period: hold previous verified detection for up to 0.7s on live feeds
-                # On static images, maintain verified detections
-                if not self.is_static_image and (now - self.last_person_seen_time > 0.7):
+                if not self.is_static_image and (now - self.last_person_seen_time > 1.2):
                     self.cached_persons = []
 
-            # Multi-frame temporal confirmation for weapons:
-            # On live streams: requires 2 consecutive frames to prevent single-frame glitches/flicker
-            # On static uploaded images: confirms immediately on single frame
-            if detected_weapons:
-                self.weapon_threat_counter = min(5, self.weapon_threat_counter + 1)
-                self.last_weapon_seen_time = now
-                if self.is_static_image or self.weapon_threat_counter >= 2:
-                    self.cached_weapons = detected_weapons
+            # Multi-frame temporal confirmation for weapons
+            if detected_weapons is not None:
+                if detected_weapons:
+                    self.weapon_threat_counter = min(5, self.weapon_threat_counter + 1)
+                    self.last_weapon_seen_time = now
+                    if self.is_static_image or self.weapon_threat_counter >= 2:
+                        self.cached_weapons = detected_weapons
+                else:
+                    if not self.is_static_image:
+                        self.weapon_threat_counter = max(0, self.weapon_threat_counter - 1)
+                        if self.weapon_threat_counter == 0 or (now - self.last_weapon_seen_time > 0.6):
+                            self.cached_weapons = []
             else:
-                if not self.is_static_image:
-                    self.weapon_threat_counter = max(0, self.weapon_threat_counter - 1)
-                    if self.weapon_threat_counter == 0 or (now - self.last_weapon_seen_time > 0.6):
-                        self.cached_weapons = []
+                # Interleaved cycle where weapon was not run: preserve verified threats up to 0.8s
+                if not self.is_static_image and (now - self.last_weapon_seen_time > 0.8):
+                    self.cached_weapons = []
+
+            # Multi-frame temporal confirmation for Fire & Smoke
+            if detected_fire_smoke is not None:
+                if detected_fire_smoke:
+                    self.fire_smoke_threat_counter = min(5, self.fire_smoke_threat_counter + 1)
+                    self.last_fire_smoke_seen_time = now
+                    if self.is_static_image or self.fire_smoke_threat_counter >= 2:
+                        self.cached_fire_smoke = detected_fire_smoke
+                else:
+                    if not self.is_static_image:
+                        self.fire_smoke_threat_counter = max(0, self.fire_smoke_threat_counter - 1)
+                        if self.fire_smoke_threat_counter == 0 or (now - self.last_fire_smoke_seen_time > 0.8):
+                            self.cached_fire_smoke = []
+            else:
+                # Interleaved cycle where fire/smoke was not run: preserve verified hazards up to 1.2s
+                if not self.is_static_image and (now - self.last_fire_smoke_seen_time > 1.2):
+                    self.cached_fire_smoke = []
 
             self.last_inferred_frame_id = frame_idx
 
@@ -775,7 +904,9 @@ class CameraProcessor:
                 zone_config = self.zone_config.copy() if self.zone_config else {}
                 cached_p = list(self.cached_persons)
                 cached_w = list(self.cached_weapons)
+                cached_fs = list(self.cached_fire_smoke)
                 weapon_counter = self.weapon_threat_counter
+                fs_counter = self.fire_smoke_threat_counter
                 is_static = self.is_static_image
 
             if raw_frame is None or status in ("OFFLINE", "ERROR", "DISCONNECTED"):
@@ -805,6 +936,14 @@ class CameraProcessor:
             # Weapon confirmation: require 2 detections on video, immediate on static images
             is_confirmed_weapon = (len(cached_w) > 0 and (is_static or weapon_counter >= 2))
             weapon_count = len(cached_w) if is_confirmed_weapon else 0
+
+            # Fire & Smoke confirmation
+            is_confirmed_fs = (len(cached_fs) > 0 and (is_static or fs_counter >= 2))
+            fire_smoke_count = len(cached_fs) if is_confirmed_fs else 0
+            fire_hazards = [h for h in cached_fs if 'FIRE' in h['name']] if is_confirmed_fs else []
+            smoke_hazards = [h for h in cached_fs if 'SMOKE' in h['name']] if is_confirmed_fs else []
+            fire_count = len(fire_hazards)
+            smoke_count = len(smoke_hazards)
 
             # 1. Render Restricted Zone overlay
             if zone_polygon is not None:
@@ -872,9 +1011,91 @@ class CameraProcessor:
                     cv2.rectangle(display_frame, (wx1, max(15, wy1 - 20)), (wx1 + wtw + 8, max(15, wy1)), w_color, -1)
                     cv2.putText(display_frame, w_tag, (wx1 + 4, max(12, wy1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
 
-            # 4. Flashing Alert Banners & Smart Snapshot Recording
+            # 4. Render Fire & Smoke Bounding Boxes
+            if is_confirmed_fs:
+                for h in cached_fs:
+                    hx1, hy1, hx2, hy2 = h['coords']
+                    h_conf = h['conf']
+                    h_name = h['name']
+                    if 'FIRE' in h_name:
+                        h_color = (0, 69, 255)  # Flaming Orange/Red
+                        h_tag = f"FIRE {h_conf*100:.0f}%"
+                    else:
+                        h_color = (180, 160, 130)  # Smoke Gray/Khaki
+                        h_tag = f"SMOKE {h_conf*100:.0f}%"
+
+                    cv2.rectangle(display_frame, (hx1, hy1), (hx2, hy2), h_color, 2, cv2.LINE_AA)
+                    (htw, hth), _ = cv2.getTextSize(h_tag, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+                    cv2.rectangle(display_frame, (hx1, max(15, hy1 - 20)), (hx1 + htw + 8, max(15, hy1)), h_color, -1)
+                    cv2.putText(display_frame, h_tag, (hx1 + 4, max(12, hy1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
+
+            # 5. Flashing Alert Banners & Smart Snapshot Recording
+            is_fire_threat = fire_count > 0
+            is_smoke_threat = smoke_count > 0 and not is_fire_threat
             is_weapon_threat = is_confirmed_weapon
             is_intrusion_threat = intruder_count > 0
+
+            # Priority 1: Fire & Smoke Hazard Alerts
+            if is_fire_threat:
+                cv2.rectangle(display_frame, (0, 0), (640, 28), (0, 40, 230), -1)
+                cv2.putText(display_frame, f"CRITICAL: FIRE HAZARD DETECTED - {self.name}",
+                            (12, 19), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (255, 255, 255), 2, cv2.LINE_AA)
+
+                now = time.time()
+                if not self.fire_incident_active and (now - self.last_fire_incident_time > 10.0):
+                    self.fire_incident_active = True
+                    self.last_fire_incident_time = now
+                    try:
+                        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                        evidence_dir = os.path.join(base_dir, 'media', 'evidence')
+                        os.makedirs(evidence_dir, exist_ok=True)
+                        snap_name = f"cam{self.camera_id}_fire_{int(time.time())}.jpg"
+                        snap_path = os.path.join(evidence_dir, snap_name)
+                        cv2.imwrite(snap_path, display_frame)
+
+                        cam_obj = Camera.objects.filter(id=self.camera_id).first()
+                        SecurityIncident.objects.create(
+                            camera=cam_obj,
+                            threat_type="FIRE DETECTED",
+                            severity='CRITICAL',
+                            source=f"{self.name} ({self.location or 'Hazard Sector'})",
+                            intruder_count=fire_count,
+                            snapshot=f"evidence/{snap_name}",
+                            details=f"Active combustion fire detected on camera #{self.camera_id} with {fire_hazards[0]['conf']*100:.1f}% confidence."
+                        )
+                    except Exception as err:
+                        print(f"[CameraProcessor {self.camera_id}] Error logging fire incident:", err)
+            elif is_smoke_threat:
+                cv2.rectangle(display_frame, (0, 0), (640, 28), (50, 75, 100), -1)
+                cv2.putText(display_frame, f"WARNING: SMOKE HAZARD DETECTED - {self.name}",
+                            (12, 19), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (255, 255, 255), 2, cv2.LINE_AA)
+
+                now = time.time()
+                if not self.fire_incident_active and (now - self.last_fire_incident_time > 10.0):
+                    self.fire_incident_active = True
+                    self.last_fire_incident_time = now
+                    try:
+                        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                        evidence_dir = os.path.join(base_dir, 'media', 'evidence')
+                        os.makedirs(evidence_dir, exist_ok=True)
+                        snap_name = f"cam{self.camera_id}_smoke_{int(time.time())}.jpg"
+                        snap_path = os.path.join(evidence_dir, snap_name)
+                        cv2.imwrite(snap_path, display_frame)
+
+                        cam_obj = Camera.objects.filter(id=self.camera_id).first()
+                        SecurityIncident.objects.create(
+                            camera=cam_obj,
+                            threat_type="SMOKE DETECTED",
+                            severity='CRITICAL',
+                            source=f"{self.name} ({self.location or 'Hazard Sector'})",
+                            intruder_count=smoke_count,
+                            snapshot=f"evidence/{snap_name}",
+                            details=f"Smoke dispersion hazard detected on camera #{self.camera_id} with {smoke_hazards[0]['conf']*100:.1f}% confidence."
+                        )
+                    except Exception as err:
+                        print(f"[CameraProcessor {self.camera_id}] Error logging smoke incident:", err)
+            else:
+                self.fire_incident_active = False
 
             if is_weapon_threat:
                 cv2.rectangle(display_frame, (0, 0), (640, 28), (0, 35, 220), -1)
@@ -945,15 +1166,20 @@ class CameraProcessor:
 
             # Small HUD footer in camera view
             cv2.rectangle(display_frame, (0, 456), (640, 480), (15, 23, 42), -1)
-            hud_text = f"CAM {self.camera_id}: {self.name}  |  PEOPLE: {person_count}  |  INTRUDERS: {intruder_count}  |  WEAPONS: {weapon_count}"
-            cv2.putText(display_frame, hud_text, (10, 473), cv2.FONT_HERSHEY_SIMPLEX, 0.40, (148, 163, 184), 1, cv2.LINE_AA)
+            hud_text = f"CAM {self.camera_id}: {self.name}  |  PEOPLE: {person_count}  |  INTRUDERS: {intruder_count}  |  WEAPONS: {weapon_count}  |  HAZARDS: {fire_smoke_count}"
+            cv2.putText(display_frame, hud_text, (10, 473), cv2.FONT_HERSHEY_SIMPLEX, 0.38, (148, 163, 184), 1, cv2.LINE_AA)
 
             # Update public state
             with self.lock:
                 self.person_count = person_count
                 self.intruder_count = intruder_count
                 self.weapon_count = weapon_count
-                if weapon_count > 0:
+                self.fire_smoke_count = fire_smoke_count
+                if fire_count > 0:
+                    self.status = "FIRE ALERT"
+                elif smoke_count > 0:
+                    self.status = "SMOKE ALERT"
+                elif weapon_count > 0:
                     self.status = f"WEAPON ALERT ({cached_w[0]['name']})"
                 elif intruder_count > 0:
                     self.status = "INTRUSION ALERT"
@@ -996,7 +1222,8 @@ class CameraProcessor:
                 'person_count': self.person_count,
                 'intruder_count': self.intruder_count,
                 'weapon_count': self.weapon_count,
-                'alert_active': (self.intruder_count > 0 or self.weapon_count > 0),
+                'fire_smoke_count': self.fire_smoke_count,
+                'alert_active': (self.intruder_count > 0 or self.weapon_count > 0 or self.fire_smoke_count > 0),
                 'zone_mode': self.zone_mode,
                 'zone_config': self.zone_config,
                 'last_seen': self.last_seen.strftime("%H:%M:%S") if self.last_seen else None
@@ -1061,7 +1288,8 @@ class CameraManager:
                         zone_mode=cam.zone_mode,
                         zone_config=cam.zone_config,
                         person_detection=cam.person_detection,
-                        weapon_detection=cam.weapon_detection
+                        weapon_detection=cam.weapon_detection,
+                        fire_smoke_detection=cam.fire_smoke_detection
                     )
                     proc.start()
                     self.processors[cam.id] = proc
@@ -1074,7 +1302,8 @@ class CameraManager:
                         zone_mode=cam.zone_mode,
                         zone_config=cam.zone_config,
                         person_detection=cam.person_detection,
-                        weapon_detection=cam.weapon_detection
+                        weapon_detection=cam.weapon_detection,
+                        fire_smoke_detection=cam.fire_smoke_detection
                     )
 
             # Stop processors for deactivated or deleted cameras
@@ -1107,7 +1336,8 @@ class CameraManager:
                     zone_mode=cam.zone_mode,
                     zone_config=cam.zone_config,
                     person_detection=cam.person_detection,
-                    weapon_detection=cam.weapon_detection
+                    weapon_detection=cam.weapon_detection,
+                    fire_smoke_detection=cam.fire_smoke_detection
                 )
                 if cam.is_active:
                     proc.start()
@@ -1134,7 +1364,8 @@ class CameraManager:
                 zone_mode=camera_obj.zone_mode,
                 zone_config=camera_obj.zone_config,
                 person_detection=camera_obj.person_detection,
-                weapon_detection=camera_obj.weapon_detection
+                weapon_detection=camera_obj.weapon_detection,
+                fire_smoke_detection=camera_obj.fire_smoke_detection
             )
             proc.start()
             self.processors[camera_obj.id] = proc
@@ -1157,6 +1388,7 @@ class CameraManager:
         total_persons = 0
         total_intruders = 0
         total_weapons = 0
+        total_fire_smoke = 0
         online_count = 0
         camera_stats = []
 
@@ -1170,8 +1402,11 @@ class CameraManager:
             total_persons += stats['person_count']
             total_intruders += stats['intruder_count']
             total_weapons += stats['weapon_count']
+            total_fire_smoke += stats.get('fire_smoke_count', 0)
 
-        if total_weapons > 0:
+        if total_fire_smoke > 0:
+            system_status = f"CRITICAL: {total_fire_smoke} FIRE/SMOKE HAZARD(S) DETECTED"
+        elif total_weapons > 0:
             system_status = f"CRITICAL: {total_weapons} WEAPON(S) DETECTED"
         elif total_intruders > 0:
             system_status = f"WARNING: {total_intruders} ZONE INTRUSION(S)"
@@ -1188,7 +1423,8 @@ class CameraManager:
             'total_persons': total_persons,
             'total_intruders': total_intruders,
             'total_weapons': total_weapons,
-            'alert_active': (total_intruders > 0 or total_weapons > 0),
+            'total_fire_smoke': total_fire_smoke,
+            'alert_active': (total_intruders > 0 or total_weapons > 0 or total_fire_smoke > 0),
             'system_status': system_status,
             'cameras': camera_stats
         }

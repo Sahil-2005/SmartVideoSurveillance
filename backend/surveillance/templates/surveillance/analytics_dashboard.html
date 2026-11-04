@@ -199,7 +199,7 @@
                                     <span style="color: var(--text-muted);">{{ inc.source }}</span>
                                 {% endif %}
                             </td>
-                            <td style="padding: 10px 14px; font-weight: 600; color: {% if 'WEAPON' in inc.threat_type %}#dc2626{% else %}#d97706{% endif %};">
+                            <td style="padding: 10px 14px; font-weight: 600; color: {% if 'FIRE' in inc.threat_type %}#ea580c{% elif 'SMOKE' in inc.threat_type %}#64748b{% elif 'WEAPON' in inc.threat_type %}#dc2626{% else %}#d97706{% endif %};">
                                 {{ inc.threat_type }}
                             </td>
                             <td style="padding: 10px 14px; font-weight: 700;">

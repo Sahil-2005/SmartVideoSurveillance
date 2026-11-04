@@ -237,7 +237,11 @@
                                 </div>
                             {% else %}
                                 <div class="alert-thumbnail">
-                                    {% if 'WEAPON' in alert.threat_type %}
+                                    {% if 'FIRE' in alert.threat_type %}
+                                        <i class="fa-solid fa-fire-flame-curved" style="color: #ea580c;"></i>
+                                    {% elif 'SMOKE' in alert.threat_type %}
+                                        <i class="fa-solid fa-smog" style="color: #64748b;"></i>
+                                    {% elif 'WEAPON' in alert.threat_type %}
                                         <i class="fa-solid fa-gun" style="color: var(--accent-red);"></i>
                                     {% else %}
                                         <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-red);"></i>
@@ -246,7 +250,11 @@
                             {% endif %}
                             <div class="alert-details">
                                 <strong class="alert-headline" style="color: {% if 'WEAPON' in alert.threat_type or alert.severity == 'CRITICAL' %}var(--accent-red-dark){% else %}var(--text-heading){% endif %};">
-                                    {% if 'WEAPON' in alert.threat_type %}
+                                    {% if 'FIRE' in alert.threat_type %}
+                                        Fire Hazard Detected
+                                    {% elif 'SMOKE' in alert.threat_type %}
+                                        Smoke Hazard Detected
+                                    {% elif 'WEAPON' in alert.threat_type %}
                                         Weapon Detected
                                     {% elif 'INTRUSION' in alert.threat_type %}
                                         Intrusion Detected
@@ -371,7 +379,11 @@
                             </div>
                         {% else %}
                             <div class="incident-thumb">
-                                {% if 'WEAPON' in inc.threat_type %}
+                                {% if 'FIRE' in inc.threat_type %}
+                                    <i class="fa-solid fa-fire-flame-curved" style="color: #ea580c;"></i>
+                                {% elif 'SMOKE' in inc.threat_type %}
+                                    <i class="fa-solid fa-smog" style="color: #64748b;"></i>
+                                {% elif 'WEAPON' in inc.threat_type %}
                                     <i class="fa-solid fa-gun" style="color: var(--accent-red);"></i>
                                 {% elif 'INTRUSION' in inc.threat_type %}
                                     <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-red);"></i>
@@ -382,7 +394,11 @@
                         {% endif %}
                         <div class="incident-info">
                             <strong>
-                                {% if 'INTRUSION' in inc.threat_type %}
+                                {% if 'FIRE' in inc.threat_type %}
+                                    Fire hazard detected in {{ inc.camera.name|default:inc.source }}
+                                {% elif 'SMOKE' in inc.threat_type %}
+                                    Smoke hazard detected in {{ inc.camera.name|default:inc.source }}
+                                {% elif 'INTRUSION' in inc.threat_type %}
                                     Intrusion detected in {{ inc.camera.name|default:inc.source }}
                                 {% elif 'WEAPON' in inc.threat_type %}
                                     Weapon detected in {{ inc.camera.name|default:inc.source }}
@@ -1203,7 +1219,8 @@
             
             const weapons = data.total_weapons || 0;
             const intruders = data.total_intruders || 0;
-            const totalThreats = weapons + intruders;
+            const fireSmoke = data.total_fire_smoke || 0;
+            const totalThreats = weapons + intruders + fireSmoke;
             if (threatsEl) threatsEl.innerText = totalThreats;
 
             if (data.cameras) {
@@ -1215,7 +1232,7 @@
                 data.cameras.forEach(c => {
                     const badge = document.getElementById(`badge-cam-${c.camera_id || c.id}`);
                     const tile = document.getElementById(`tile-cam-${c.camera_id || c.id}`);
-                    const isThreat = (c.weapon_count > 0) || (c.intruder_count > 0);
+                    const isThreat = (c.weapon_count > 0) || (c.intruder_count > 0) || (c.fire_smoke_count > 0);
 
                     if (tile) {
                         if (isThreat) {
@@ -1228,8 +1245,16 @@
                     if (badge) {
                         if (isThreat) {
                             badge.className = "cam-overlay-status status-alert";
-                            badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Threat Active`;
-                            playThreatAlarm(c.weapon_count > 0 ? 'weapon' : 'breach');
+                            if (c.fire_smoke_count > 0) {
+                                badge.innerHTML = `<i class="fa-solid fa-fire-flame-curved"></i> Hazard Active`;
+                                playThreatAlarm('fire');
+                            } else if (c.weapon_count > 0) {
+                                badge.innerHTML = `<i class="fa-solid fa-gun"></i> Weapon Alert`;
+                                playThreatAlarm('weapon');
+                            } else {
+                                badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Threat Active`;
+                                playThreatAlarm('breach');
+                            }
                         } else if (c.status.includes('ONLINE') || c.status.includes('MONITORING')) {
                             badge.className = "cam-overlay-status status-online";
                             badge.innerHTML = `<i class="fa-solid fa-circle" style="font-size: 0.45rem;"></i> Online`;

@@ -96,7 +96,15 @@
                         
                         <!-- Threat Type -->
                         <td style="padding: 12px 16px; font-weight: 600;">
-                            {% if 'WEAPON' in inc.threat_type %}
+                            {% if 'FIRE' in inc.threat_type %}
+                                <span style="color: #ea580c; display: flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-fire-flame-curved"></i> Fire Hazard
+                                </span>
+                            {% elif 'SMOKE' in inc.threat_type %}
+                                <span style="color: #64748b; display: flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-smog"></i> Smoke Hazard
+                                </span>
+                            {% elif 'WEAPON' in inc.threat_type %}
                                 <span style="color: #dc2626; display: flex; align-items: center; gap: 6px;">
                                     <i class="fa-solid fa-gun"></i> Weapon Detected
                                 </span>

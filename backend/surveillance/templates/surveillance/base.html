@@ -1076,6 +1076,25 @@
                             </span>
                         </div>
 
+                        <!-- AI Detection Feature Toggles -->
+                        <div class="form-group" style="margin-top: 14px;">
+                            <label class="form-label" style="margin-bottom: 8px;">Active AI Models & Surveillance Features</label>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid var(--border-card);">
+                                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; cursor: pointer; color: var(--text-heading); font-weight: 600;">
+                                    <input type="checkbox" id="add-cam-person" checked style="accent-color: var(--primary-blue); width: 16px; height: 16px;">
+                                    <span><i class="fa-solid fa-user-shield" style="color: var(--primary-blue);"></i> Person & Zone</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; cursor: pointer; color: var(--text-heading); font-weight: 600;">
+                                    <input type="checkbox" id="add-cam-weapon" checked style="accent-color: var(--primary-blue); width: 16px; height: 16px;">
+                                    <span><i class="fa-solid fa-gun" style="color: var(--accent-red);"></i> Weapon Guard</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; cursor: pointer; color: var(--text-heading); font-weight: 600;">
+                                    <input type="checkbox" id="add-cam-fire" checked style="accent-color: var(--primary-blue); width: 16px; height: 16px;">
+                                    <span><i class="fa-solid fa-fire-flame-curved" style="color: #ea580c;"></i> Fire & Smoke</span>
+                                </label>
+                            </div>
+                        </div>
+
                         <!-- Connection Test Result Banner -->
                         <div id="test-feedback" style="display: none; padding: 12px 14px; border-radius: 10px; font-size: 0.82rem; margin-bottom: 1.2rem; font-family: var(--font-mono);"></div>
 
@@ -1133,7 +1152,18 @@
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
-                if (type === 'weapon') {
+                if (type === 'fire') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(750, ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(1150, ctx.currentTime + 0.12);
+                    osc.frequency.linearRampToValueAtTime(750, ctx.currentTime + 0.24);
+                    gain.gain.setValueAtTime(0.20, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.42);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.42);
+                } else if (type === 'weapon') {
                     osc.type = 'sawtooth';
                     osc.frequency.setValueAtTime(950, ctx.currentTime);
                     osc.frequency.linearRampToValueAtTime(1400, ctx.currentTime + 0.15);
@@ -1318,6 +1348,11 @@
                                             <span>${c.location || 'Local Sector'}</span> &bull; 
                                             <code style="color: var(--text-body);">${c.stream_url}</code>
                                         </div>
+                                        <div style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
+                                            ${c.person_detection ? '<span style="font-size: 0.68rem; padding: 2px 7px; border-radius: 4px; background: #eff6ff; color: #1d4ed8; font-weight: 600;"><i class=\"fa-solid fa-person\"></i> Person</span>' : ''}
+                                            ${c.weapon_detection ? '<span style="font-size: 0.68rem; padding: 2px 7px; border-radius: 4px; background: #fef2f2; color: #b91c1c; font-weight: 600;"><i class=\"fa-solid fa-gun\"></i> Weapon</span>' : ''}
+                                            ${c.fire_smoke_detection ? '<span style="font-size: 0.68rem; padding: 2px 7px; border-radius: 4px; background: #fff7ed; color: #c2410c; font-weight: 600;"><i class=\"fa-solid fa-fire-flame-curved\"></i> Fire/Smoke</span>' : ''}
+                                        </div>
                                     </div>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -1412,6 +1447,9 @@
                 formData.append('stream_url', streamUrl);
                 formData.append('camera_type', cameraType);
                 formData.append('location', location);
+                formData.append('person_detection', document.getElementById('add-cam-person').checked);
+                formData.append('weapon_detection', document.getElementById('add-cam-weapon').checked);
+                formData.append('fire_smoke_detection', document.getElementById('add-cam-fire').checked);
 
                 const res = await fetch('/api/cameras/add', {
                     method: 'POST',
