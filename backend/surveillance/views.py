@@ -41,7 +41,7 @@ def logout_view(request):
 @auth_required
 def dashboard(request):
     mgr = _get_manager()
-    cameras = Camera.objects.all().order_by('id')
+    cameras = Camera.objects.exclude(camera_type='upload').order_by('id')
     recent_incidents = SecurityIncident.objects.all().order_by('-timestamp')[:4]
     recent_alerts = SecurityIncident.objects.all().order_by('-timestamp')[:3]
     return render(request, 'surveillance/dashboard.html', {
@@ -61,7 +61,7 @@ def upload_dashboard(request):
 @auth_required
 def logs_dashboard(request):
     camera_id = request.GET.get('camera_id')
-    cameras = Camera.objects.all().order_by('id')
+    cameras = Camera.objects.exclude(camera_type='upload').order_by('id')
     
     incidents = SecurityIncident.objects.all().order_by('-timestamp')
     if camera_id and camera_id.isdigit():
@@ -77,7 +77,7 @@ def logs_dashboard(request):
 
 @auth_required
 def analytics_dashboard(request):
-    cameras = Camera.objects.all().order_by('id')
+    cameras = Camera.objects.exclude(camera_type='upload').order_by('id')
     camera_id = request.GET.get('camera_id')
     
     incidents = SecurityIncident.objects.all().order_by('-timestamp')
@@ -115,7 +115,7 @@ def analytics_dashboard(request):
 def video_feed(request):
     """Fallback feed streaming the primary / first active camera."""
     mgr = _get_manager()
-    active_cams = Camera.objects.filter(is_active=True).order_by('id')
+    active_cams = Camera.objects.filter(is_active=True).exclude(camera_type='upload').order_by('id')
     primary_id = active_cams.first().id if active_cams.exists() else 1
     proc = mgr.get_processor(primary_id)
     if not proc:
@@ -136,7 +136,7 @@ def video_feed_camera(request, camera_id):
 def get_stats(request):
     """Returns aggregated surveillance stats and per-camera breakdowns."""
     mgr = _get_manager()
-    all_stats = mgr.get_all_stats()
+    all_stats = mgr.get_all_stats(exclude_upload=True)
 
     # Top-level fallback properties for backwards compatibility
     primary_cam = None
@@ -191,7 +191,7 @@ def get_analytics(request):
 
     cam_labels = []
     cam_values = []
-    for c in Camera.objects.all():
+    for c in Camera.objects.exclude(camera_type='upload'):
         cnt = all_incidents.filter(camera=c).count()
         cam_labels.append(c.name)
         cam_values.append(cnt)
@@ -225,7 +225,7 @@ def camera_list(request):
     """List all registered cameras with real-time stats."""
     mgr = _get_manager()
     cams = Camera.objects.all().order_by('id')
-    stats_map = {c['camera_id']: c for c in mgr.get_all_stats()['cameras']}
+    stats_map = {c['camera_id']: c for c in mgr.get_all_stats(exclude_upload=False)['cameras']}
 
     result = []
     for c in cams:

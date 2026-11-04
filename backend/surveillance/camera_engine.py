@@ -248,39 +248,33 @@ def filter_and_suppress_weapons(raw_weapons, detected_persons=None):
         max_dim = max(ww, wh)
         aspect = max_dim / float(max(1, min(ww, wh)))
 
-        if ww < 16 or wh < 16:
+        if ww < 16 or wh < 16 or area < 1000 or area > 75000:
             continue
 
-        # Proximity to person check (arm's reach <= 120px)
+        # Proximity to person check (arm's reach / holding <= 160px)
         near_person = False
         if detected_persons:
             for p in detected_persons:
                 px1, py1, px2, py2 = p['coords']
-                # Check expanded bounding box (within arm's reach ~120px of person)
-                if (wx2 >= px1 - 120 and wx1 <= px2 + 120 and wy2 >= py1 - 120 and wy1 <= py2 + 120):
+                if (wx2 >= px1 - 160 and wx1 <= px2 + 160 and wy2 >= py1 - 160 and wy1 <= py2 + 160):
                     near_person = True
                     break
 
         is_knife = ('KNIFE' in name)
 
         if not is_knife:
-            # PISTOL validation:
-            # Compact palm-sized weapon.
-            # Real pistol in check.jpg: ww=72, wh=68, area=4896.
-            # Rejects pillows/cushions (> 12,000px^2) and human heads (> 10,000px^2)
-            if area > 8500 or max_dim > 105 or ww > 95 or wh > 95:
+            # PISTOL validation: compact firearm geometry (aspect <= 1.65)
+            if aspect > 1.65:
                 continue
-            if aspect > 1.8:
-                continue
-            # Real pistols score >= 0.65
-            if conf < 0.65:
+            min_conf = 0.35 if near_person else 0.70
+            if conf < min_conf:
                 continue
         else:
-            # KNIFE validation:
-            if area > 45000 or aspect > 7.5:
+            # KNIFE validation: elongated bladed weapon
+            if aspect > 8.5:
                 continue
-            # When within arm's reach of a person, allow conf down to 0.25 to detect reflective/angled blades
-            min_conf = 0.25 if near_person else 0.60
+            # When near or held by person, accept conf down to 0.20 to catch shiny/angled blades
+            min_conf = 0.20 if near_person else 0.60
             if conf < min_conf:
                 continue
 
@@ -443,7 +437,7 @@ class SharedInferenceWorker:
             )
             if should_run_weapon:
                 try:
-                    w_results = self.weapon_model(frame, conf=0.25, imgsz=640, verbose=False)
+                    w_results = self.weapon_model(frame, conf=0.20, imgsz=640, verbose=False)
                     raw_weapons = []
                     for r in w_results:
                         for box in r.boxes:
@@ -1052,7 +1046,7 @@ class CameraManager:
                     zone_config={'x1': 320, 'y1': 0, 'x2': 640, 'y2': 480}
                 )
 
-            active_cameras = Camera.objects.filter(is_active=True)
+            active_cameras = Camera.objects.filter(is_active=True).exclude(camera_type='upload')
             active_ids = set()
 
             for cam in active_cameras:
@@ -1084,7 +1078,7 @@ class CameraManager:
                     )
 
             # Stop processors for deactivated or deleted cameras
-            to_remove = [cid for cid in self.processors if cid not in active_ids]
+            to_remove = [cid for cid, proc in self.processors.items() if cid not in active_ids and proc.camera_type != 'upload']
             for cid in to_remove:
                 proc = self.processors.pop(cid)
                 proc.stop()
@@ -1153,7 +1147,7 @@ class CameraManager:
             if proc:
                 proc.stop()
 
-    def get_all_stats(self):
+    def get_all_stats(self, exclude_upload=True):
         """Aggregate detection statistics across all active cameras."""
         with self.lock:
             if not self._synced:
@@ -1167,6 +1161,8 @@ class CameraManager:
         camera_stats = []
 
         for p in procs:
+            if exclude_upload and p.camera_type == 'upload':
+                continue
             stats = p.get_stats()
             camera_stats.append(stats)
             if "ONLINE" in stats['status'] or "ALERT" in stats['status'] or "MONITORING" in stats['status']:
@@ -1187,7 +1183,7 @@ class CameraManager:
             system_status = "ALL CAMERAS OFFLINE"
 
         return {
-            'total_cameras': len(procs),
+            'total_cameras': len(camera_stats),
             'online_cameras': online_count,
             'total_persons': total_persons,
             'total_intruders': total_intruders,
