@@ -119,43 +119,58 @@ def is_person_in_zone(x1, y1, x2, y2, zone_polygon):
 
 def is_complete_person(x1, y1, x2, y2, conf, frame=None):
     """
-    Validates whether a detected bounding box represents a genuine, complete human person
-    across close-up webcam positions, seated postures, and distant room occupants, while
-    strictly rejecting isolated waving hands, limbs, or background objects.
-    
+    Validates whether a detected bounding box represents a genuine human person,
+    calibrated for webcam users, seated postures, and room occupants, while strictly
+    rejecting inanimate objects (folded laundry/clothes on beds, plush toys, cushions,
+    pillows, bags) and isolated waving hands.
+
     Validation Criteria:
-    1. Confidence threshold: conf >= 0.35.
-    2. Adaptive Scale Bounds (in 640x480 frame):
-       - Allows chest-level webcam crops and background occupants: height >= 75px, width >= 45px, area >= 5,000px^2.
-    3. Anatomical Human Aspect Ratio:
-       - Accommodates wide seated torso angles up to tall standing silhouettes: 0.50 <= aspect <= 4.20.
-    4. Anti-Hand & Anti-Limb Rejection:
-       - Eliminates isolated hands/arms (area < 7,500px^2 with narrow width < 50px or extreme aspect ratios).
+    1. Calibrated Confidence Gate: conf >= 0.50.
+       - Rejects low-confidence inanimate proposals (clothes piles, blankets, chairs)
+         which typically score 0.35-0.48.
+    2. Physical Dimensions & Scale (in 640x480 resolution):
+       - Allows chest-level webcam crops and background occupants: height >= 75px, width >= 45px, area >= 6,000px^2.
+    3. Small-Candidate Precision Gate:
+       - If area < 9,000px^2, requires conf >= 0.65 to reject small plush toys, dolls, and stray objects.
+    4. Anatomical Human Aspect Ratio:
+       - Close-up webcam chest crop (w >= 220px or area >= 40,000px^2):
+         Human shoulders fill the frame horizontally, so 0.55 <= aspect <= 4.20.
+       - Mid-range / distant occupants (w < 220px and area < 40,000px^2):
+         Human beings (standing, crouching, or seated) are ALWAYS vertically oriented (aspect >= 1.08).
+         This strictly eliminates horizontal folded laundry (aspect ~0.93), cushions, pillows, and bags.
+    5. Anti-Hand & Anti-Limb Rejection:
+       - Eliminates isolated hands/arms (area < 8,500px^2 with narrow width < 50px or extreme aspect ratios).
     """
     w = x2 - x1
     h = y2 - y1
     if w <= 0 or h <= 0:
         return False
-        
-    # 1. Minimum confidence threshold
-    if conf < 0.35:
+
+    # 1. Minimum confidence threshold (rejects low-confidence inanimate objects)
+    if conf < 0.50:
         return False
 
     area = w * h
     aspect = h / float(w)
 
     # 2. Minimum physical dimensions (in 640x480 resolution)
-    # Allows close webcam chest crops and background occupants down to 75px height
-    if h < 75 or w < 45 or area < 5000:
+    if h < 75 or w < 45 or area < 6000:
         return False
 
-    # 3. Valid Human Aspect Ratio
-    if aspect < 0.50 or aspect > 4.20:
+    # 3. Small-scale confidence gate
+    if area < 9000 and conf < 0.65:
         return False
 
-    # 4. Hand / Isolated limb rejection:
-    # A hand or arm is small (< 7,500 px^2) and narrow (w < 50)
-    if area < 7500 and (w < 50 or aspect > 3.5 or aspect < 0.70):
+    # 4. Anatomical Human Aspect Ratio
+    if w >= 220 or area >= 40000:
+        if aspect < 0.55 or aspect > 4.20:
+            return False
+    else:
+        if aspect < 1.08 or aspect > 4.20:
+            return False
+
+    # 5. Anti-Hand & Anti-Limb Rejection
+    if area < 8500 and (w < 50 or aspect > 3.5 or aspect < 0.85):
         return False
 
     return True
@@ -240,7 +255,7 @@ def filter_and_suppress_weapons(raw_weapons, detected_persons=None):
     for w in raw_weapons:
         wx1, wy1, wx2, wy2 = w['coords']
         conf = w['conf']
-        name = w.get('name', '').upper()
+        name = (w.get('name') or w.get('class') or '').upper()
         ww = wx2 - wx1
         wh = wy2 - wy1
         area = ww * wh
@@ -254,14 +269,24 @@ def filter_and_suppress_weapons(raw_weapons, detected_persons=None):
         # Proximity to person check (arm's reach: horizontal <= 110px, vertical <= 80px)
         near_person = False
         is_above_person = False
+        body_overlap = False
         if detected_persons:
             for p in detected_persons:
-                px1, py1, px2, py2 = p['coords']
+                px1, py1, px2, py2 = p['coords'] if isinstance(p, dict) else p
+                overlap_x = max(0, min(wx2, px2) - max(wx1, px1))
                 if (wx2 >= px1 - 110 and wx1 <= px2 + 110 and wy2 >= py1 - 80 and wy1 <= py2 + 80):
-                    near_person = True
                     # Check if candidate is high above the person's head on ceiling
                     if wy2 < py1 - 25:
                         is_above_person = True
+                        break
+                    # If candidate extends above head height (wy1 < py1 - 35),
+                    # it must horizontally overlap the body (held upright in hand above shoulders)
+                    if wy1 < py1 - 35 and overlap_x == 0:
+                        is_above_person = True
+                        break
+                    near_person = True
+                    if overlap_x > 0:
+                        body_overlap = True
                     break
 
         if is_above_person:
@@ -281,12 +306,14 @@ def filter_and_suppress_weapons(raw_weapons, detected_persons=None):
             if conf < min_conf:
                 continue
         else:
-            # KNIFE validation: elongated bladed weapon
-            if area < 600 or area > 45000:
+            # KNIFE validation: handheld elongated bladed weapon
+            # Limits area <= 40,000px^2 (allows close-up hand+blade while rejecting full-screen stripes)
+            if area < 600 or area > 40000:
                 continue
             if aspect < 1.30 or aspect > 8.5:
                 continue
-            min_conf = 0.20 if near_person else 0.55
+            # Held near and overlapping body: conf >= 0.20. Standalone: conf >= 0.55
+            min_conf = 0.20 if (near_person and body_overlap) else (0.35 if near_person else 0.55)
             if conf < min_conf:
                 continue
 
@@ -327,38 +354,128 @@ def filter_and_suppress_weapons(raw_weapons, detected_persons=None):
     return final_weapons
 
 
-def filter_and_suppress_fire_smoke(raw_candidates):
+def is_combustion_color(crop):
+    """
+    Verifies that a candidate fire bounding box contains genuine combustion flame incandescence
+    rather than cold daylight, fluorescent lamps, or passive orange/red fabric (clothing, blankets,
+    bags, cushions).
+    
+    Combustion Flame Criteria:
+    - Genuine combustion flames are self-luminous and exhibit high red dominance:
+      mean(R) >= 135 and (mean(R) - mean(B)) >= 35.
+    - OR localized bright incandescent flame core:
+      at least 20% of pixels in the bounding box satisfy (R > 175, R > B + 40, R > G * 0.90).
+    """
+    if crop is None or crop.size == 0:
+        return False
+    b, g, r = cv2.split(crop)
+    mean_r = float(np.mean(r))
+    mean_b = float(np.mean(b))
+    mean_g = float(np.mean(g))
+
+    # Real combustion fire has high red dominance over blue (R - B >= 35) and high mean R (>= 135)
+    r_b_diff = mean_r - mean_b
+    if mean_r >= 135 and r_b_diff >= 35:
+        return True
+
+    # Check for concentrated incandescent flame core (bright fiery pixels)
+    # Fire core: R > 175, R > B + 40, R > G * 0.90
+    warm_core = (r > 175) & (r > b + 40) & (r > g * 0.90)
+    warm_pct = np.count_nonzero(warm_core) / float(crop.shape[0] * crop.shape[1])
+    return warm_pct >= 0.20
+
+
+def is_human_head_false_smoke(smoke_box, detected_persons):
+    """
+    Checks if a candidate smoke detection is physically sitting directly on top of
+    a detected human's shoulders/torso, representing hair/head misclassification.
+    """
+    if not detected_persons:
+        return False
+
+    sx1, sy1, sx2, sy2 = smoke_box
+    scx = (sx1 + sx2) / 2.0
+
+    for p in detected_persons:
+        px1, py1, px2, py2 = p['coords'] if isinstance(p, dict) else p
+        pcx = (px1 + px2) / 2.0
+        pw = px2 - px1
+        ph = py2 - py1
+
+        # Horizontally aligned with human center
+        if abs(scx - pcx) < 0.40 * pw:
+            # Sits directly on top of shoulders or overlaps upper torso / head
+            if (sy2 >= py1 - 35) and (sy1 <= py1 + 0.35 * ph) and (sy1 >= py1 - 0.75 * ph):
+                return True
+
+    return False
+
+
+def filter_and_suppress_fire_smoke(raw_candidates, detected_persons=None, frame=None):
     """
     Validates fire and smoke candidates and applies NMS deduplication.
     
     Validation Criteria:
-    1. Confidence threshold:
-       - FIRE: conf >= 0.35 (combustion / flame)
-       - SMOKE: conf >= 0.38 (smoke plume / haze)
-    2. Area scale: between 400px^2 and 260,000px^2 (filters out single-pixel glints)
-    3. Non-Maximum Suppression (IoU > 0.35)
+    1. Combustion Flame (FIRE):
+       - Confidence >= 0.35
+       - Dimensional bounds: 400px^2 <= area <= 260,000px^2 (rejects sub-pixel glints)
+       - Color spectrum check: verifies warm combustion incandescence, rejecting cold daylight / office lamps.
+    2. Smoke Dispersion (SMOKE):
+       - Confidence >= 0.45 for standalone smoke, >= 0.32 if accompanying confirmed fire.
+       - Area >= 1,000px^2 (smoke is a diffuse volumetric phenomenon).
+       - Anti-head/hair filter: rejects smoke candidates aligned directly above a human torso as hair.
+    3. Cross-Hazard Conflict Resolution:
+       - When a candidate triggers both FIRE and SMOKE in the same region, FIRE takes precedence if combustion colors are present.
+    4. Non-Maximum Suppression (IoU > 0.35).
     """
-    valid = []
+    valid_fire = []
+    raw_smoke = []
+    h_f, w_f = (frame.shape[:2]) if frame is not None else (480, 640)
+
     for c in raw_candidates:
         x1, y1, x2, y2 = c['coords']
         conf = c['conf']
-        name = c.get('name', '').upper()
+        name = (c.get('name') or c.get('class') or '').upper()
         w = x2 - x1
         h = y2 - y1
         area = w * h
         if w < 16 or h < 16 or area < 400 or area > 260000:
             continue
-        min_conf = 0.35 if 'FIRE' in name else 0.38
+        if 'FIRE' in name:
+            if conf < 0.45:
+                continue
+            if frame is not None:
+                crop = frame[max(0, y1):min(h_f, y2), max(0, x1):min(w_f, x2)]
+                if not is_combustion_color(crop):
+                    continue
+            valid_fire.append(c)
+        else:
+            raw_smoke.append(c)
+
+    has_fire = len(valid_fire) > 0
+    valid_smoke = []
+    for c in raw_smoke:
+        x1, y1, x2, y2 = c['coords']
+        conf = c['conf']
+        w = x2 - x1
+        h = y2 - y1
+        area = w * h
+        if area < 1000:
+            continue
+        min_conf = 0.32 if has_fire else 0.45
         if conf < min_conf:
             continue
-        valid.append(c)
+        if is_human_head_false_smoke(c['coords'], detected_persons):
+            continue
+        valid_smoke.append(c)
 
-    if not valid:
+    candidates = valid_fire + valid_smoke
+    if not candidates:
         return []
 
-    valid.sort(key=lambda x: x['conf'], reverse=True)
+    candidates.sort(key=lambda x: x['conf'], reverse=True)
     final_hazards = []
-    for cand in valid:
+    for cand in candidates:
         cx1, cy1, cx2, cy2 = cand['coords']
         cand_area = max(1, (cx2 - cx1) * (cy2 - cy1))
         is_dup = False
@@ -487,7 +604,7 @@ class SharedInferenceWorker:
             # 1. Person Detection (classes=[0] for person) with Complete Person Filtering & NMS
             if self.person_model and target_proc.person_detection_enabled:
                 try:
-                    p_results = self.person_model(frame, classes=[0], conf=0.40, imgsz=480, verbose=False)
+                    p_results = self.person_model(frame, classes=[0], conf=0.45, imgsz=480, verbose=False)
                     raw_candidates = []
                     for r in p_results:
                         for box in r.boxes:
@@ -584,7 +701,7 @@ class SharedInferenceWorker:
                                 'conf': f_conf,
                                 'name': cls_name
                             })
-                    detected_fire_smoke = filter_and_suppress_fire_smoke(raw_fs)
+                    detected_fire_smoke = filter_and_suppress_fire_smoke(raw_fs, detected_persons or target_proc.cached_persons, frame)
                 except Exception as e:
                     print(f"[InferenceWorker] Fire/smoke detection error on Cam {target_proc.camera_id}: {e}")
                     detected_fire_smoke = []
@@ -638,6 +755,10 @@ class CameraProcessor:
         self.intruder_count = 0
         self.weapon_count = 0
         self.fire_smoke_count = 0
+
+        # Intrusion temporal confirmation & incident debounce
+        self.intruder_threat_counter = 0
+        self.last_intruder_seen_time = 0
 
         # Weapon temporal confirmation & incident debounce
         self.weapon_threat_counter = 0
@@ -958,20 +1079,49 @@ class CameraProcessor:
             zone_polygon = get_zone_polygon(zone_mode, zone_config)
 
             person_count = len(cached_p)
-            intruder_count = 0
-            detected_persons_with_zone = []
+            raw_intruders = []
 
             for p in cached_p:
                 x1, y1, x2, y2 = p['coords']
                 conf = p['conf']
+                pw = x2 - x1
+                ph = y2 - y1
+                p_area = pw * ph
                 is_in_zone, anchor_pt = is_person_in_zone(x1, y1, x2, y2, zone_polygon)
-                if is_in_zone:
-                    intruder_count += 1
+                # An unauthorized intrusion requires a confirmed person candidate (conf >= 0.52 and area >= 6,500px^2)
+                if is_in_zone and conf >= 0.52 and p_area >= 6500:
+                    raw_intruders.append({
+                        'coords': (x1, y1, x2, y2),
+                        'conf': conf,
+                        'anchor': anchor_pt
+                    })
+
+            # Intrusion temporal confirmation: require 2 detections on video, immediate on static images
+            now = time.time()
+            if raw_intruders:
+                self.intruder_threat_counter = min(5, self.intruder_threat_counter + 1)
+                self.last_intruder_seen_time = now
+            else:
+                if not is_static:
+                    self.intruder_threat_counter = max(0, self.intruder_threat_counter - 1)
+
+            is_confirmed_intruder = (len(raw_intruders) > 0 and (is_static or self.intruder_threat_counter >= 2))
+            intruder_count = len(raw_intruders) if is_confirmed_intruder else 0
+
+            detected_persons_with_zone = []
+            for p in cached_p:
+                x1, y1, x2, y2 = p['coords']
+                conf = p['conf']
+                pw = x2 - x1
+                ph = y2 - y1
+                p_area = pw * ph
+                is_in_zone, anchor_pt = is_person_in_zone(x1, y1, x2, y2, zone_polygon)
+                is_breach = is_confirmed_intruder and is_in_zone and conf >= 0.52 and p_area >= 6500
                 detected_persons_with_zone.append({
                     'coords': (x1, y1, x2, y2),
                     'conf': conf,
                     'anchor': anchor_pt,
-                    'is_intruder': is_in_zone
+                    'is_intruder': is_breach
                 })
 
             # Weapon confirmation: require 2 detections on video, immediate on static images

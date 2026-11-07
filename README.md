@@ -14,31 +14,50 @@ Engineered specifically with **CPU-first interleaved scheduling**, allowing the 
 
 ## Key Capabilities & Features
 
-### 1. Accurate Person Detection & Complete-Person Geometry
-- **Complete Body Geometry Filtering:** Evaluates candidate bounding boxes using aspect ratio ($0.60 \le \text{aspect} \le 4.0$), physical dimensions ($h \ge 110\text{px}, w \ge 65\text{px}$), and minimum pixel volume ($\text{area} \ge 8,000\text{px}^2$).
-- **Anti-Limb & Hand Suppression:** Distinguishes between complete human torsos/occupants and isolated arms or hands. Raising a hand or waving does not register as a person or inflate headcounts.
-- **Deduplication via NMS & Containment:** Eliminates duplicate bounding boxes for the same individual ($\text{IoU} > 0.30$ or nested containment $> 0.45$).
+### 1. High-Precision Person Detection & Adaptive Human Geometry
+- **Calibrated Confidence Gate ($\text{conf} \ge 0.50$):** Eliminates low-confidence inanimate proposals (folded laundry piles on beds, chairs with coats, hanging towels, and bags) which typically score $0.35 - 0.48$.
+- **Morphological Human Aspect Ratio & Tapering:**
+  - **Close-Up Webcam Occupants ($w \ge 220\text{px}$ or $\text{area} \ge 40,000\text{px}^2$):** Broad torso/chest crops spanning the frame allow $0.55 \le \text{aspect} \le 4.20$.
+  - **Mid-Range & Distant Room Occupants ($w < 220\text{px}$ and $\text{area} < 40,000\text{px}^2$):** Humans (standing, seated, or crouching) are strictly vertically oriented ($\text{aspect} \ge 1.08$). This physically rejects squarish/horizontal lumps like piles of folded clothes ($\text{aspect} \approx 0.93$), pillows, blankets, and bags.
+- **Small-Scale Precision Gating:** Objects smaller than $9,000\text{px}^2$ must meet high confidence ($\text{conf} \ge 0.65$), preventing small plush toys, shoes, or shelf items from registering as people.
+- **Anti-Limb & Hand Rejection:** Strictly eliminates isolated waving hands or arms ($\text{area} < 8,500\text{px}^2$ with $w < 50\text{px}$ or extreme aspect ratios). Raising a hand or gesturing never inflates headcounts or registers as an occupant.
+- **Deduplication via NMS & Containment:** Eliminates duplicate bounding boxes for the same individual ($\text{IoU} > 0.45$ or nested containment $> 0.75$), while preserving adjacent distinct individuals.
 - **Temporal Grace Period ($0.7\text{s}$):** Retains verified person state across momentary head tilts, blinks, or speaking pauses to eliminate visual strobe-flickering.
 
 ### 2. Restricted Zone & Intrusion Detection
 - **Preset Security Sectors:** Instant zone coverage including **Right Sector**, **Left Sector**, **Center Box**, and **Corridor**.
 - **Interactive Drag-to-Draw Custom Boundary:** Security operators can draw arbitrary polygonal/rectangular intrusion boundaries directly over the live video feed with dynamic dashed amber preview, automated coordinate translation to native camera resolution ($640\times 480$), and instant API persistence (`/api/cameras/<id>/set-zone`).
 - **Anatomical Anchor & Volumetric Overlap Verification:** Intrusion breaches are evaluated using physical body anchor points (head, torso centroid, base, and mid-height lateral flanks) requiring $\ge 25\%$ volumetric overlap. Grazing background corners or empty bounding box margins never trigger false alarms.
+- **Intruder Gating & Multi-Frame Temporal Confirmation:**
+  - Breaching occupants must be verified human candidates ($\text{conf} \ge 0.52, \text{area} \ge 6,500\text{px}^2$).
+  - Requires $\ge 2$ consecutive frames in the restricted zone on live feeds before declaring an active intrusion breach. Transient lighting glints or single-frame flickers never trigger sirens or emergency banners.
 
 ### 3. Armed Weapon & Threat Classification (Knife & Pistol)
-- **Dual-Model Inference:** Leverages specialized fine-tuned `weapon_yolov8n.pt` running at $640\times 640$ resolution alongside `yolo11n.pt`.
-- **Arm-Reach Spatial Association ($\le 110\text{px}$):** Confirms proximity to a detected person within physical reaching distance ($\le 110\text{px}$), linking weapons directly to wielders while rejecting phantom weapons on distant walls, ceilings, or curtains.
-- **Class-Calibrated Sensitivity & Physical Geometry:**
-  - **Knives ($\text{conf} \ge 0.35$):** Optimized for bladed weapons held within arm's reach ($\le 120\text{px}$) with aspect ratio $\le 7.0$ and area $\le 45,000\text{px}^2$. Standalone knives require $\text{conf} \ge 0.65$.
-  - **Pistols ($\text{conf} \ge 0.73$):** Enforces compact palm-sized handgun constraints ($\text{area} \le 7,000\text{px}^2$, $\text{max\_dimension} \le 95\text{px}$, $\text{aspect} \le 1.7$). This strictly eliminates large furniture cushions ($\text{area} > 12,000\text{px}^2$) and human heads/hair silhouettes ($\text{area} > 10,000\text{px}^2$) from ever triggering false pistol alarms.
-- **Multi-Frame Temporal Confirmation ($\ge 2$ Consecutive Cycles):** Prevents transient optical noise, hand flicks, or lighting shifts from triggering critical alarms.
+- **Dual-Stage Person-ROI Inference Pipeline:**
+  - **Stage A (Global Frame Scan):** Rapid global inference ($480\text{px}$) detects macroscopic firearm displays and unholstered weapons.
+  - **Stage B (High-Resolution Zoom ROI):** Dynamically crops a padded bounding region ($+80\text{px}$ horizontal, $+50\text{px}$ vertical) around each detected person at native resolution ($480\text{px}$). Catches narrow bladed knives, angled kitchen knives, and concealed small handguns that downsampling degrades.
+- **Physical Handgun Geometry Filtering (Pistol / Gun):**
+  - Handgun area strictly constrained: $800\text{px}^2 \le \text{area} \le 11,000\text{px}^2$, $\text{max\_dimension} \le 120\text{px}$, and $\text{aspect} \le 1.85$.
+  - This eliminates false alarms on floral cushions ($22,500\text{px}^2$), dark doorframes, ceiling beams, and human heads/neck shadows.
+  - Confidence threshold: $\ge 0.40$ when held near a person, $\ge 0.65$ for standalone handguns.
+- **Elongated Bladed Tool Geometry (Knife):**
+  - Knives exhibit elongated slender geometry: $1.30 \le \text{aspect} \le 8.5$, $600\text{px}^2 \le \text{area} \le 40,000\text{px}^2$.
+  - **Overhead Fixture & Clothesline Rejection:** Any candidate extending high above head level ($wy_1 < py_1 - 35\text{px}$) must horizontally overlap the occupant's body, strictly rejecting floating doorway headers, hanging clotheslines, and curtain edges.
+  - **Calibrated Proximity Thresholds:** Handheld knives physically overlapping the occupant body require $\text{conf} \ge 0.20$; non-overlapping adjacent candidates require $\text{conf} \ge 0.35$; standalone bladed objects require $\text{conf} \ge 0.55$.
+  - Conflict resolution: Overlapping blade-grip proposals prioritize knife classification over pistol grips.
+- **Overhead Fixture Rejection:** Candidates positioned entirely above human head height ($y_2 < py_1 - 25\text{px}$) are rejected as ceiling fixtures or ventilation ducts.
+- **Multi-Frame Temporal Confirmation ($\ge 2$ Consecutive Cycles):** Prevents transient optical noise or rapid gestures from triggering critical alarms.
 - **Incident Debouncing ($10.0\text{s}$ Cooldown):** Prevents repetitive alert flooding for ongoing single events.
 
 ### 4. Fire & Smoke Hazard Detection (D-Fire YOLOv8 Nano)
 - **Ultra-Lightweight Neural Architecture:** Fine-tuned D-Fire YOLOv8 Nano model weights (`fire_smoke_yolov8n.pt`, $3.2\text{M}$ parameters, $\sim 6.2\text{ MB}$) running at $480\times 480$ resolution for maximum CPU efficiency ($\sim 45\text{ms}$ inference latency).
 - **Dual-Hazard Classification:** Independently detects and differentiates between active combustion flames (`FIRE`) and atmospheric smoke plumes/haze (`SMOKE`).
-- **Combustion Flame Filtering:** Calibrated confidence gate ($\text{conf} \ge 0.35$) with spatial bounding ($400\text{px}^2 \le \text{area} \le 260,000\text{px}^2$) and minimum dimensions ($w \ge 16\text{px}, h \ge 16\text{px}$) to reject micro-glints and reflective metallic surfaces.
-- **Smoke Dispersion Filtering:** Calibrated confidence gate ($\text{conf} \ge 0.38$) with Non-Maximum Suppression ($\text{IoU} > 0.35$) to capture expanding volumetric smoke clouds without duplicate box stacking.
+- **Incandescent Combustion Verification (Fire vs Orange Fabrics):**
+  - Calibrated confidence gate ($\text{conf} \ge 0.45$) with spatial bounding ($400\text{px}^2 \le \text{area} \le 260,000\text{px}^2$).
+  - Evaluates color channel distribution: verifies genuine self-luminous flame incandescence ($\text{mean}(R) \ge 135$ and $\text{mean}(R) - \text{mean}(B) \ge 35$, or $\ge 20\%$ concentrated flame core pixels with $R > 175, R > B + 40, R > 0.90 \cdot G$). Passive orange/red fabrics (t-shirts, blankets, cushions, towels) and cold daylight glare are strictly rejected.
+- **Anti-Head / Anti-Hair False Smoke Suppression:**
+  - Evaluates smoke candidates against detected persons. If a candidate is horizontally aligned with a human torso ($|\Delta cx| < 0.40 \cdot pw$) and rests directly on shoulders or head height without accompanying flame, it is rejected as head/hair misclassification.
+  - Standalone smoke requires $\text{conf} \ge 0.45$ and $\text{area} \ge 1,000\text{px}^2$; smoke accompanying confirmed fire triggers at $\text{conf} \ge 0.32$.
 - **Hazard-Specific Visual Overlays & Warnings:** Displays glowing flame-red bounding boxes for fire and khaki/slate gray boxes for smoke, accompanied by prominent top banner alerts: `CRITICAL: FIRE HAZARD DETECTED` and `WARNING: SMOKE HAZARD DETECTED`.
 - **Dual-Tone Synthesizer Siren:** Dispatches audio alarms via Web Audio API oscillators specifically modulated for combustion emergencies.
 - **Automated Evidence Logging:** Instantaneously records snapshot frames (`cam<id>_fire_<ts>.jpg` / `cam<id>_smoke_<ts>.jpg`) directly into `SecurityIncident` audit logs.
@@ -96,11 +115,11 @@ flowchart TD
         Proc1 -.-> Worker[SharedInferenceWorker]
         Proc2 -.-> Worker
         Worker --> YOLOPerson[YOLO11n Person Detection @ 480px]
-        Worker -. Cycle 0 .-> YOLOWeapon[YOLOv8n Weapon Detection @ 640px]
+        Worker -. Cycle 0 .-> YOLOWeapon[Dual-Stage YOLOv8n Weapon: Global + Person-ROI @ 480px]
         Worker -. Cycle 1 .-> YOLOFire[D-Fire YOLOv8n Fire & Smoke @ 480px]
-        YOLOPerson --> PersonFilter[Complete Person Geometry & NMS Filter]
-        YOLOWeapon --> WeaponFilter[Class & Proximity Spatial Filter]
-        YOLOFire --> FireFilter[Combustion & Scale NMS Filter]
+        YOLOPerson --> PersonFilter[Adaptive Scale, Anti-Limb & NMS Filter]
+        YOLOWeapon --> WeaponFilter[Physical Handgun/Blade Geometry & Overlap Filter]
+        YOLOFire --> FireFilter[Combustion Spectrum & Anti-Head Smoke Filter]
         PersonFilter --> Sync[Sync Results via Lock]
         WeaponFilter --> Sync
         FireFilter --> Sync
