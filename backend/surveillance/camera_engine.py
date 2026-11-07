@@ -117,20 +117,20 @@ def is_person_in_zone(x1, y1, x2, y2, zone_polygon):
     return False, (cx, head_y)
 
 
-def is_complete_person(x1, y1, x2, y2, conf, frame):
+def is_complete_person(x1, y1, x2, y2, conf, frame=None):
     """
     Validates whether a detected bounding box represents a genuine, complete human person
-    rather than background objects, a hand, an isolated arm, or visual noise.
+    across close-up webcam positions, seated postures, and distant room occupants, while
+    strictly rejecting isolated waving hands, limbs, or background objects.
     
     Validation Criteria:
-    1. Confidence threshold: conf >= 0.40.
-    2. Physical scale & area: height >= 90px, width >= 40px, area >= 5000px^2 in 640x480 frame.
-    3. Aspect Ratio: height / width >= 0.60 and <= 4.5.
-    4. Complete Person Stance vs Hand Discriminator:
-       - Standing / walking full body: aspect >= 1.40 and height >= 90px.
-       - Seated upper body (webcam): height >= 120px and aspect >= 0.65.
-       - High confidence occupant: conf >= 0.65, height >= 100px, width >= 60px.
-    5. Hand Rejection: Small boxes (< 18,000 px) with low-medium confidence are rejected.
+    1. Confidence threshold: conf >= 0.35.
+    2. Adaptive Scale Bounds (in 640x480 frame):
+       - Allows chest-level webcam crops and background occupants: height >= 75px, width >= 45px, area >= 5,000px^2.
+    3. Anatomical Human Aspect Ratio:
+       - Accommodates wide seated torso angles up to tall standing silhouettes: 0.50 <= aspect <= 4.20.
+    4. Anti-Hand & Anti-Limb Rejection:
+       - Eliminates isolated hands/arms (area < 7,500px^2 with narrow width < 50px or extreme aspect ratios).
     """
     w = x2 - x1
     h = y2 - y1
@@ -138,40 +138,34 @@ def is_complete_person(x1, y1, x2, y2, conf, frame):
         return False
         
     # 1. Minimum confidence threshold
-    if conf < 0.40:
+    if conf < 0.35:
         return False
 
+    area = w * h
+    aspect = h / float(w)
+
     # 2. Minimum physical dimensions (in 640x480 resolution)
-    # A complete person body/torso is at least 65px wide and 110px tall. Eliminates narrow limbs/hands
-    if h < 110 or w < 65 or (w * h) < 8000:
+    # Allows close webcam chest crops and background occupants down to 75px height
+    if h < 75 or w < 45 or area < 5000:
         return False
 
     # 3. Valid Human Aspect Ratio
-    aspect = h / float(w)
-    if aspect < 0.60 or aspect > 4.0:
+    if aspect < 0.50 or aspect > 4.20:
         return False
 
-    # 4. Complete Person Geometry:
-    is_full_body = (aspect >= 1.40 and h >= 150 and w >= 65)
-    is_seated = (h >= 120 and w >= 80 and aspect >= 0.65)
-    is_high_conf = (conf >= 0.65 and h >= 110 and w >= 70)
-    if not (is_full_body or is_seated or is_high_conf):
+    # 4. Hand / Isolated limb rejection:
+    # A hand or arm is small (< 7,500 px^2) and narrow (w < 50)
+    if area < 7500 and (w < 50 or aspect > 3.5 or aspect < 0.70):
         return False
-
-    # 5. Hand Rejection:
-    # A hand or isolated limb proposal is small (< 18,000 px^2) and narrow (w < 70)
-    if (w * h) < 18000 and (conf < 0.65 or w < 70):
-        if not is_full_body:
-            return False
 
     return True
 
 
-def filter_and_suppress_persons(raw_candidates, frame):
+def filter_and_suppress_persons(raw_candidates, frame=None):
     """
     Applies complete person verification and Non-Maximum Suppression (NMS) /
-    Containment deduplication. Eliminates duplicate boxes on the same person
-    and rejects false positive objects / hands.
+    Containment deduplication. Eliminates duplicate boxes on the same person,
+    preserves distinct nearby individuals, and rejects false positive limbs.
     """
     valid_candidates = []
     for cand in raw_candidates:
@@ -209,8 +203,9 @@ def filter_and_suppress_persons(raw_candidates, frame):
             if inter_area > 0:
                 iou = inter_area / float(cand_area + acc_area - inter_area)
                 containment = inter_area / float(min(cand_area, acc_area))
-                # Suppress if significant IoU (> 0.30) or if one box is mostly inside another (> 0.45)
-                if iou > 0.30 or containment > 0.45:
+                # Suppress only if significant IoU (> 0.45) or if an inner candidate
+                # is mostly contained inside a larger box (> 0.75)
+                if iou > 0.45 or containment > 0.75:
                     is_duplicate = True
                     break
 
@@ -225,17 +220,21 @@ def filter_and_suppress_weapons(raw_weapons, detected_persons=None):
     Validates weapon candidates (Knife & Pistol) and applies NMS deduplication.
     
     Validation Criteria:
-    1. Physical Handgun Geometry (PISTOL):
-       - A handgun is a compact palm-sized weapon (area <= 7,000px^2, max dimension <= 95px).
-       - Aspect ratio <= 1.7 (square/L-shape; rejects wide flat cushions and tall human bodies).
-       - Confidence >= 0.73 (eliminates dark fabric folds, cushions, and hair silhouettes).
+    1. Physical Handgun Geometry (PISTOL / GUN):
+       - Handguns are compact hand-held firearms:
+         - Area: 800px^2 <= area <= 11,000px^2 (strictly rejects furniture cushions, doorframes, and background patches).
+         - Max dimension <= 120px, Aspect ratio <= 1.85 (rejects tall vertical slivers and wide flat objects).
+         - Confidence >= 0.40 when near person, >= 0.65 for standalone firearms.
     2. Physical Bladed Weapon Geometry (KNIFE):
-       - Knives are elongated bladed tools (area <= 45,000px^2, aspect ratio <= 7.0).
-       - When within arm's reach (<= 120px) of a person: conf >= 0.35.
-       - Standalone knives away from people: conf >= 0.65.
-    3. Person Arm-Reach Proximity Association:
-       In 640x480 resolution, an arm holding a weapon extends within 120px of the torso.
-    4. Non-Maximum Suppression (IoU > 0.35): Eliminates duplicate boxes on the same weapon.
+       - Knives are elongated bladed tools (aspect ratio 1.30 to 8.5, area 600px^2 to 45,000px^2).
+       - When held near/by person: conf >= 0.20.
+       - Standalone knives away from people: conf >= 0.55.
+    3. Person Arm-Reach Spatial Association:
+       - Confirms candidate is within physical arm's reach of a person (dx <= 110px, dy <= 80px).
+       - Rejects ceiling objects (fans/vents) high above human head (wy2 < py1 - 25).
+    4. Overlap & Conflict Resolution:
+       - If an elongated knife candidate overlaps with a compact pistol candidate, the knife takes precedence.
+    5. Non-Maximum Suppression (IoU > 0.35).
     """
     valid_candidates = []
     for w in raw_weapons:
@@ -246,35 +245,48 @@ def filter_and_suppress_weapons(raw_weapons, detected_persons=None):
         wh = wy2 - wy1
         area = ww * wh
         max_dim = max(ww, wh)
-        aspect = max_dim / float(max(1, min(ww, wh)))
+        min_dim = max(1, min(ww, wh))
+        aspect = max_dim / float(min_dim)
 
-        if ww < 16 or wh < 16 or area < 1000 or area > 75000:
+        if ww < 16 or wh < 16:
             continue
 
-        # Proximity to person check (arm's reach / holding <= 160px)
+        # Proximity to person check (arm's reach: horizontal <= 110px, vertical <= 80px)
         near_person = False
+        is_above_person = False
         if detected_persons:
             for p in detected_persons:
                 px1, py1, px2, py2 = p['coords']
-                if (wx2 >= px1 - 160 and wx1 <= px2 + 160 and wy2 >= py1 - 160 and wy1 <= py2 + 160):
+                if (wx2 >= px1 - 110 and wx1 <= px2 + 110 and wy2 >= py1 - 80 and wy1 <= py2 + 80):
                     near_person = True
+                    # Check if candidate is high above the person's head on ceiling
+                    if wy2 < py1 - 25:
+                        is_above_person = True
                     break
+
+        if is_above_person:
+            continue
 
         is_knife = ('KNIFE' in name)
 
         if not is_knife:
-            # PISTOL validation: compact firearm geometry (aspect <= 1.65)
-            if aspect > 1.65:
+            # PISTOL / GUN validation: compact firearm geometry
+            if area < 800 or area > 11000:
                 continue
-            min_conf = 0.35 if near_person else 0.70
+            if max_dim > 120:
+                continue
+            if aspect > 1.85:
+                continue
+            min_conf = 0.40 if near_person else 0.65
             if conf < min_conf:
                 continue
         else:
             # KNIFE validation: elongated bladed weapon
-            if aspect > 8.5:
+            if area < 600 or area > 45000:
                 continue
-            # When near or held by person, accept conf down to 0.20 to catch shiny/angled blades
-            min_conf = 0.20 if near_person else 0.60
+            if aspect < 1.30 or aspect > 8.5:
+                continue
+            min_conf = 0.20 if near_person else 0.55
             if conf < min_conf:
                 continue
 
@@ -286,7 +298,7 @@ def filter_and_suppress_weapons(raw_weapons, detected_persons=None):
     # Sort descending by confidence
     valid_candidates.sort(key=lambda x: x['conf'], reverse=True)
 
-    # NMS Deduplication
+    # NMS Deduplication with Knife precedence on elongated shapes
     final_weapons = []
     for cand in valid_candidates:
         cx1, cy1, cx2, cy2 = cand['coords']
@@ -506,22 +518,51 @@ class SharedInferenceWorker:
                 (is_static or (cycle == 1))
             )
 
-            # 2. Weapon Detection (Knife & Pistol)
+            # 2. Weapon Detection (Knife & Pistol) - Dual-Stage Global + Person-ROI Inference
             if should_run_weapon:
                 try:
-                    w_results = self.weapon_model(frame, conf=0.20, imgsz=640, verbose=False)
                     raw_weapons = []
+                    # Stage A: Global Frame Inference (imgsz=480, classes=[0, 3] for Gun & Knife)
+                    w_results = self.weapon_model(frame, conf=0.18, classes=[0, 3], imgsz=480, verbose=False)
                     for r in w_results:
                         for box in r.boxes:
                             wx1, wy1, wx2, wy2 = map(int, box.xyxy[0])
                             w_conf = float(box.conf[0])
                             cls_id = int(box.cls[0])
-                            cls_name = self.weapon_model.names.get(cls_id, 'weapon').upper()
+                            cls_name = 'KNIFE' if cls_id == 3 else 'PISTOL'
                             raw_weapons.append({
                                 'coords': (wx1, wy1, wx2, wy2),
                                 'conf': w_conf,
                                 'name': cls_name
                             })
+
+                    # Stage B: High-Precision Person-ROI Inference
+                    # Zooms into person + arm-reach interaction zone to catch narrow bladed knives
+                    # and small gripped pistols in high resolution!
+                    if detected_persons:
+                        h_f, w_f = frame.shape[:2]
+                        for p in detected_persons:
+                            px1, py1, px2, py2 = p['coords']
+                            pad_x, pad_y = 80, 50
+                            cx1 = max(0, px1 - pad_x)
+                            cy1 = max(0, py1 - pad_y)
+                            cx2 = min(w_f, px2 + pad_x)
+                            cy2 = min(h_f, py2 + pad_y)
+                            crop = frame[cy1:cy2, cx1:cx2]
+                            if crop.shape[0] >= 32 and crop.shape[1] >= 32:
+                                roi_res = self.weapon_model(crop, conf=0.18, classes=[0, 3], imgsz=480, verbose=False)
+                                for r in roi_res:
+                                    for box in r.boxes:
+                                        bx1, by1, bx2, by2 = map(int, box.xyxy[0])
+                                        w_conf = float(box.conf[0])
+                                        cls_id = int(box.cls[0])
+                                        cls_name = 'KNIFE' if cls_id == 3 else 'PISTOL'
+                                        raw_weapons.append({
+                                            'coords': (bx1 + cx1, by1 + cy1, bx2 + cx1, by2 + cy1),
+                                            'conf': w_conf,
+                                            'name': cls_name
+                                        })
+
                     detected_weapons = filter_and_suppress_weapons(raw_weapons, detected_persons or [])
                 except Exception as e:
                     print(f"[InferenceWorker] Weapon detection error on Cam {target_proc.camera_id}: {e}")
