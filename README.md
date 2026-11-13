@@ -49,15 +49,19 @@ Engineered specifically with **CPU-first interleaved scheduling**, allowing the 
 - **Multi-Frame Temporal Confirmation ($\ge 2$ Consecutive Cycles):** Prevents transient optical noise or rapid gestures from triggering critical alarms.
 - **Incident Debouncing ($10.0\text{s}$ Cooldown):** Prevents repetitive alert flooding for ongoing single events.
 
-### 4. Fire & Smoke Hazard Detection (D-Fire YOLOv8 Nano)
-- **Ultra-Lightweight Neural Architecture:** Fine-tuned D-Fire YOLOv8 Nano model weights (`fire_smoke_yolov8n.pt`, $3.2\text{M}$ parameters, $\sim 6.2\text{ MB}$) running at $480\times 480$ resolution for maximum CPU efficiency ($\sim 45\text{ms}$ inference latency).
+### 4. Fire & Smoke Hazard Detection (Dual-Stage D-Fire YOLOv8 Nano)
+- **Dual-Stage Fire Inference Pipeline:**
+  - **Stage A (Global Frame Scan @ 480px):** Rapid full-field scan detecting macroscopic combustion events (wastebasket fires, curtains, burning furniture, structural fires, and environmental smoke).
+  - **Stage B (High-Resolution Person-ROI Zoom @ 384px):** Dynamically crops a padded bounding region around each detected occupant at native resolution. Enables the neural network to clearly resolve miniature handheld ignition sources (matchsticks, lighters, candles) where downsampling otherwise blurs the flame.
+- **Ultra-Lightweight Neural Architecture:** Fine-tuned D-Fire YOLOv8 Nano model weights (`fire_smoke_yolov8n.pt`, $3.2\text{M}$ parameters, $\sim 6.2\text{ MB}$) running on CPU with minimal latency ($\sim 45\text{ms}$ global pass, $\sim 42\text{ms}$ Person-ROI pass).
 - **Dual-Hazard Classification:** Independently detects and differentiates between active combustion flames (`FIRE`) and atmospheric smoke plumes/haze (`SMOKE`).
-- **Incandescent Combustion Verification (Fire vs Orange Fabrics):**
-  - Calibrated confidence gate ($\text{conf} \ge 0.45$) with spatial bounding ($400\text{px}^2 \le \text{area} \le 260,000\text{px}^2$).
-  - Evaluates color channel distribution: verifies genuine self-luminous flame incandescence ($\text{mean}(R) \ge 135$ and $\text{mean}(R) - \text{mean}(B) \ge 35$, or $\ge 20\%$ concentrated flame core pixels with $R > 175, R > B + 40, R > 0.90 \cdot G$). Passive orange/red fabrics (t-shirts, blankets, cushions, towels) and cold daylight glare are strictly rejected.
+- **Incandescent Combustion Verification (Small Flames vs Orange Fabrics):**
+  - Calibrated confidence gate ($\text{conf} \ge 0.20$) with spatial bounding ($150\text{px}^2 \le \text{area} \le 260,000\text{px}^2$, $\min(w, h) \ge 10\text{px}$).
+  - Evaluates color channel distribution: verifies genuine self-luminous flame incandescence ($\text{mean}(R) \ge 135$ and $\text{mean}(R) - \text{mean}(B) \ge 30$, OR $\ge 15\%$ concentrated fiery flame core pixels with $R > 175, R > B + 35, R > 0.85 \cdot G$, OR $\ge 10\%$ white-hot incandescent core with $R > 215, G > 185, R \ge B$ combined with $\text{mean}(R) \ge 140$ and $\text{mean}(R) - \text{mean}(B) \ge 20$).
+  - Passive orange/red fabrics (t-shirts, blankets, cushions, towels) are strictly rejected ($< 2\%$ core), while small handheld flames ($> 85\%$ core) trigger immediate alerts.
 - **Anti-Head / Anti-Hair False Smoke Suppression:**
   - Evaluates smoke candidates against detected persons. If a candidate is horizontally aligned with a human torso ($|\Delta cx| < 0.40 \cdot pw$) and rests directly on shoulders or head height without accompanying flame, it is rejected as head/hair misclassification.
-  - Standalone smoke requires $\text{conf} \ge 0.45$ and $\text{area} \ge 1,000\text{px}^2$; smoke accompanying confirmed fire triggers at $\text{conf} \ge 0.32$.
+  - Standalone smoke requires $\text{conf} \ge 0.45$ and $\text{area} \ge 1,000\text{px}^2$; smoke accompanying confirmed fire triggers at $\text{conf} \ge 0.40$.
 - **Hazard-Specific Visual Overlays & Warnings:** Displays glowing flame-red bounding boxes for fire and khaki/slate gray boxes for smoke, accompanied by prominent top banner alerts: `CRITICAL: FIRE HAZARD DETECTED` and `WARNING: SMOKE HAZARD DETECTED`.
 - **Dual-Tone Synthesizer Siren:** Dispatches audio alarms via Web Audio API oscillators specifically modulated for combustion emergencies.
 - **Automated Evidence Logging:** Instantaneously records snapshot frames (`cam<id>_fire_<ts>.jpg` / `cam<id>_smoke_<ts>.jpg`) directly into `SecurityIncident` audit logs.
@@ -116,7 +120,7 @@ flowchart TD
         Proc2 -.-> Worker
         Worker --> YOLOPerson[YOLO11n Person Detection @ 480px]
         Worker -. Cycle 0 .-> YOLOWeapon[Dual-Stage YOLOv8n Weapon: Global + Person-ROI @ 480px]
-        Worker -. Cycle 1 .-> YOLOFire[D-Fire YOLOv8n Fire & Smoke @ 480px]
+        Worker -. Cycle 1 .-> YOLOFire[Dual-Stage D-Fire YOLOv8n Fire & Smoke: Global + Person-ROI @ 480px/384px]
         YOLOPerson --> PersonFilter[Adaptive Scale, Anti-Limb & NMS Filter]
         YOLOWeapon --> WeaponFilter[Physical Handgun/Blade Geometry & Overlap Filter]
         YOLOFire --> FireFilter[Combustion Spectrum & Anti-Head Smoke Filter]

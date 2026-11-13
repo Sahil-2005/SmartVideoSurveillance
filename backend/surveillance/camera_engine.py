@@ -362,9 +362,11 @@ def is_combustion_color(crop):
     
     Combustion Flame Criteria:
     - Genuine combustion flames are self-luminous and exhibit high red dominance:
-      mean(R) >= 135 and (mean(R) - mean(B)) >= 35.
-    - OR localized bright incandescent flame core:
-      at least 20% of pixels in the bounding box satisfy (R > 175, R > B + 40, R > G * 0.90).
+      mean(R) >= 135 and (mean(R) - mean(B)) >= 30.
+    - OR localized bright incandescent flame core (including small handheld lighters, matches, candles):
+      at least 15% of pixels in the bounding box satisfy (R > 175, R > B + 35, R > G * 0.85).
+    - OR white-hot flame core with incandescent corona (characteristic of intense lighter/match ignition):
+      at least 10% white-hot core (R > 215, G > 185, R >= B) combined with mean(R) >= 140 and mean(R) > mean(B) + 20.
     """
     if crop is None or crop.size == 0:
         return False
@@ -373,16 +375,23 @@ def is_combustion_color(crop):
     mean_b = float(np.mean(b))
     mean_g = float(np.mean(g))
 
-    # Real combustion fire has high red dominance over blue (R - B >= 35) and high mean R (>= 135)
     r_b_diff = mean_r - mean_b
-    if mean_r >= 135 and r_b_diff >= 35:
+    if mean_r >= 135 and r_b_diff >= 30:
         return True
 
     # Check for concentrated incandescent flame core (bright fiery pixels)
-    # Fire core: R > 175, R > B + 40, R > G * 0.90
-    warm_core = (r > 175) & (r > b + 40) & (r > g * 0.90)
+    warm_core = (r > 175) & (r > b + 35) & (r > g * 0.85)
     warm_pct = np.count_nonzero(warm_core) / float(crop.shape[0] * crop.shape[1])
-    return warm_pct >= 0.20
+    if warm_pct >= 0.15:
+        return True
+
+    # White-hot incandescent flame core (characteristic of close-up lighter/match flames)
+    white_hot = (r > 215) & (g > 185) & (r >= b)
+    white_hot_pct = np.count_nonzero(white_hot) / float(crop.shape[0] * crop.shape[1])
+    if white_hot_pct >= 0.10 and mean_r >= 140 and r_b_diff >= 20:
+        return True
+
+    return False
 
 
 def is_human_head_false_smoke(smoke_box, detected_persons):
@@ -439,10 +448,10 @@ def filter_and_suppress_fire_smoke(raw_candidates, detected_persons=None, frame=
         w = x2 - x1
         h = y2 - y1
         area = w * h
-        if w < 16 or h < 16 or area < 400 or area > 260000:
+        if w < 10 or h < 10 or area < 150 or area > 260000:
             continue
         if 'FIRE' in name:
-            if conf < 0.45:
+            if conf < 0.20:
                 continue
             if frame is not None:
                 crop = frame[max(0, y1):min(h_f, y2), max(0, x1):min(w_f, x2)]
@@ -462,7 +471,7 @@ def filter_and_suppress_fire_smoke(raw_candidates, detected_persons=None, frame=
         area = w * h
         if area < 1000:
             continue
-        min_conf = 0.32 if has_fire else 0.45
+        min_conf = 0.40 if has_fire else 0.45
         if conf < min_conf:
             continue
         if is_human_head_false_smoke(c['coords'], detected_persons):
@@ -685,11 +694,13 @@ class SharedInferenceWorker:
                     print(f"[InferenceWorker] Weapon detection error on Cam {target_proc.camera_id}: {e}")
                     detected_weapons = []
 
-            # 3. Fire & Smoke Detection (D-Fire YOLOv8 Nano)
+            # 3. Fire & Smoke Detection (D-Fire YOLOv8 Nano) - Dual-Stage Global + Person-ROI Inference
             if should_run_fire:
                 try:
-                    fs_results = self.fire_smoke_model(frame, conf=0.25, imgsz=480, verbose=False)
                     raw_fs = []
+
+                    # Stage A: Global Frame Scan (Macroscopic & Environmental Fire/Smoke)
+                    fs_results = self.fire_smoke_model(frame, conf=0.18, imgsz=480, verbose=False)
                     for r in fs_results:
                         for box in r.boxes:
                             fx1, fy1, fx2, fy2 = map(int, box.xyxy[0])
@@ -701,6 +712,32 @@ class SharedInferenceWorker:
                                 'conf': f_conf,
                                 'name': cls_name
                             })
+
+                    # Stage B: Person-ROI Zoom Scan (High-resolution inspection for handheld ignition, matches, lighters)
+                    active_persons = detected_persons if detected_persons is not None else target_proc.cached_persons
+                    if active_persons:
+                        h_f, w_f = frame.shape[:2]
+                        for p in active_persons[:2]:  # Check up to 2 occupants
+                            px1, py1, px2, py2 = p['coords'] if isinstance(p, dict) else p
+                            cx1 = max(0, px1 - 60)
+                            cy1 = max(0, py1 - 40)
+                            cx2 = min(w_f, px2 + 60)
+                            cy2 = min(h_f, py2 + 40)
+                            p_crop = frame[cy1:cy2, cx1:cx2]
+                            if p_crop.shape[0] >= 60 and p_crop.shape[1] >= 60:
+                                crop_res = self.fire_smoke_model(p_crop, conf=0.18, imgsz=384, verbose=False)
+                                for r in crop_res:
+                                    for box in r.boxes:
+                                        bx1, by1, bx2, by2 = map(int, box.xyxy[0])
+                                        f_conf = float(box.conf[0])
+                                        cls_id = int(box.cls[0])
+                                        cls_name = self.fire_smoke_model.names.get(cls_id, 'fire').upper()
+                                        raw_fs.append({
+                                            'coords': (bx1 + cx1, by1 + cy1, bx2 + cx1, by2 + cy1),
+                                            'conf': f_conf,
+                                            'name': cls_name
+                                        })
+
                     detected_fire_smoke = filter_and_suppress_fire_smoke(raw_fs, detected_persons or target_proc.cached_persons, frame)
                 except Exception as e:
                     print(f"[InferenceWorker] Fire/smoke detection error on Cam {target_proc.camera_id}: {e}")
