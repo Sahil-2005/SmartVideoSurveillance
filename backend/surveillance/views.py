@@ -41,7 +41,7 @@ def logout_view(request):
 @auth_required
 def dashboard(request):
     mgr = _get_manager()
-    cameras = Camera.objects.all().order_by('id')
+    cameras = Camera.objects.exclude(camera_type='upload').order_by('id')
     recent_incidents = SecurityIncident.objects.all().order_by('-timestamp')[:4]
     recent_alerts = SecurityIncident.objects.all().order_by('-timestamp')[:3]
     return render(request, 'surveillance/dashboard.html', {
@@ -61,7 +61,7 @@ def upload_dashboard(request):
 @auth_required
 def logs_dashboard(request):
     camera_id = request.GET.get('camera_id')
-    cameras = Camera.objects.all().order_by('id')
+    cameras = Camera.objects.exclude(camera_type='upload').order_by('id')
     
     incidents = SecurityIncident.objects.all().order_by('-timestamp')
     if camera_id and camera_id.isdigit():
@@ -77,7 +77,7 @@ def logs_dashboard(request):
 
 @auth_required
 def analytics_dashboard(request):
-    cameras = Camera.objects.all().order_by('id')
+    cameras = Camera.objects.exclude(camera_type='upload').order_by('id')
     camera_id = request.GET.get('camera_id')
     
     incidents = SecurityIncident.objects.all().order_by('-timestamp')
@@ -115,7 +115,7 @@ def analytics_dashboard(request):
 def video_feed(request):
     """Fallback feed streaming the primary / first active camera."""
     mgr = _get_manager()
-    active_cams = Camera.objects.filter(is_active=True).order_by('id')
+    active_cams = Camera.objects.filter(is_active=True).exclude(camera_type='upload').order_by('id')
     primary_id = active_cams.first().id if active_cams.exists() else 1
     proc = mgr.get_processor(primary_id)
     if not proc:
@@ -136,7 +136,7 @@ def video_feed_camera(request, camera_id):
 def get_stats(request):
     """Returns aggregated surveillance stats and per-camera breakdowns."""
     mgr = _get_manager()
-    all_stats = mgr.get_all_stats()
+    all_stats = mgr.get_all_stats(exclude_upload=True)
 
     # Top-level fallback properties for backwards compatibility
     primary_cam = None
@@ -148,13 +148,14 @@ def get_stats(request):
         'intruder_count': primary_cam['intruder_count'] if primary_cam else 0,
         'weapon_count': primary_cam['weapon_count'] if primary_cam else 0,
         'alert_active': all_stats['alert_active'],
-        'threat_type': 'WEAPON' if all_stats['total_weapons'] > 0 else ('INTRUSION' if all_stats['total_intruders'] > 0 else 'NONE'),
+        'threat_type': 'FIRE' if all_stats.get('total_fire_smoke', 0) > 0 else ('WEAPON' if all_stats['total_weapons'] > 0 else ('INTRUSION' if all_stats['total_intruders'] > 0 else 'NONE')),
         'status': all_stats['system_status'],
         'total_cameras': all_stats['total_cameras'],
         'online_cameras': all_stats['online_cameras'],
         'total_persons': all_stats['total_persons'],
         'total_intruders': all_stats['total_intruders'],
         'total_weapons': all_stats['total_weapons'],
+        'total_fire_smoke': all_stats.get('total_fire_smoke', 0),
         'cameras': all_stats['cameras']
     }
     return JsonResponse(response_data)
@@ -191,7 +192,7 @@ def get_analytics(request):
 
     cam_labels = []
     cam_values = []
-    for c in Camera.objects.all():
+    for c in Camera.objects.exclude(camera_type='upload'):
         cnt = all_incidents.filter(camera=c).count()
         cam_labels.append(c.name)
         cam_values.append(cnt)
@@ -225,7 +226,7 @@ def camera_list(request):
     """List all registered cameras with real-time stats."""
     mgr = _get_manager()
     cams = Camera.objects.all().order_by('id')
-    stats_map = {c['camera_id']: c for c in mgr.get_all_stats()['cameras']}
+    stats_map = {c['camera_id']: c for c in mgr.get_all_stats(exclude_upload=False)['cameras']}
 
     result = []
     for c in cams:
@@ -241,6 +242,10 @@ def camera_list(request):
             'person_count': s.get('person_count', 0),
             'intruder_count': s.get('intruder_count', 0),
             'weapon_count': s.get('weapon_count', 0),
+            'fire_smoke_count': s.get('fire_smoke_count', 0),
+            'person_detection': c.person_detection,
+            'weapon_detection': c.weapon_detection,
+            'fire_smoke_detection': c.fire_smoke_detection,
             'zone_mode': c.zone_mode,
             'zone_config': c.zone_config,
             'last_seen': s.get('last_seen', None)
@@ -264,6 +269,10 @@ def camera_add(request):
             else:
                 name = f"Android Phone #{Camera.objects.count() + 1}" if camera_type == 'ip_webcam' else f"Security Camera #{Camera.objects.count() + 1}"
 
+        p_detect = request.POST.get('person_detection', 'true').lower() in ('true', '1', 'on')
+        w_detect = request.POST.get('weapon_detection', 'true').lower() in ('true', '1', 'on')
+        fs_detect = request.POST.get('fire_smoke_detection', 'true').lower() in ('true', '1', 'on')
+
         cam = Camera.objects.create(
             name=name,
             stream_url=stream_url,
@@ -271,7 +280,10 @@ def camera_add(request):
             location=location,
             is_active=True,
             zone_mode='right',
-            zone_config={'x1': 320, 'y1': 0, 'x2': 640, 'y2': 480}
+            zone_config={'x1': 320, 'y1': 0, 'x2': 640, 'y2': 480},
+            person_detection=p_detect,
+            weapon_detection=w_detect,
+            fire_smoke_detection=fs_detect
         )
 
         mgr = _get_manager()
@@ -306,10 +318,28 @@ def camera_edit(request, camera_id):
         if camera_type:
             cam.camera_type = camera_type
         cam.location = location
+
+        if 'person_detection' in request.POST:
+            cam.person_detection = request.POST.get('person_detection').lower() in ('true', '1', 'on')
+        if 'weapon_detection' in request.POST:
+            cam.weapon_detection = request.POST.get('weapon_detection').lower() in ('true', '1', 'on')
+        if 'fire_smoke_detection' in request.POST:
+            cam.fire_smoke_detection = request.POST.get('fire_smoke_detection').lower() in ('true', '1', 'on')
+
         cam.save()
 
         mgr = _get_manager()
-        if cam.is_active:
+        proc = mgr.get_processor(cam.id)
+        if proc:
+            proc.update_settings(
+                name=cam.name,
+                stream_url=cam.stream_url,
+                location=cam.location,
+                person_detection=cam.person_detection,
+                weapon_detection=cam.weapon_detection,
+                fire_smoke_detection=cam.fire_smoke_detection
+            )
+        elif cam.is_active:
             mgr.start_camera(cam)
 
         return JsonResponse({'status': 'success', 'message': 'Camera updated successfully.'})
@@ -503,13 +533,19 @@ def upload_source(request):
                 'location': 'Uploaded Media',
                 'is_active': True,
                 'zone_mode': 'right',
-                'zone_config': {'x1': 320, 'y1': 0, 'x2': 640, 'y2': 480}
+                'zone_config': {'x1': 320, 'y1': 0, 'x2': 640, 'y2': 480},
+                'person_detection': True,
+                'weapon_detection': True,
+                'fire_smoke_detection': True
             }
         )
         if not created:
             cam.name = f"File: {filename}"
             cam.stream_url = file_path
             cam.is_active = True
+            cam.person_detection = True
+            cam.weapon_detection = True
+            cam.fire_smoke_detection = True
             cam.save()
 
         mgr = _get_manager()
